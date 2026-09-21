@@ -20,4 +20,9 @@ config BATTERY_QEMU
     help
       Stub battery driver for QEMU (fixed values).
 
+config BATTERY_STUB
+    bool "Stub"
+    help
+      Fixed-value battery driver for board bring-up.
+
 endif # BATTERY

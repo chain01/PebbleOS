@@ -75,6 +75,7 @@ elseif(CONFIG_SOC_SF32LB52)
 endif()
 
 pbl_include_directories(${includes})
+pbl_compile_definitions(LOG_DOMAIN_BT_STACK=1)
 
 pbl_library_named(nimble)
 pbl_library_sources(${sources})

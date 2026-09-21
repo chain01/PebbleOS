@@ -114,7 +114,7 @@ def build_shim(shim_s, dest_dir):
 def make_app_shim_lib(functions, sdk_lib_dir):
     temp_asm_fd, temp_asm_file = tempfile.mkstemp(suffix="pbl_shim.s")
     os.close(temp_asm_fd)
-    with open(temp_asm_file, "w") as shim_s:
+    with open(temp_asm_file, "w", encoding="utf-8") as shim_s:
         shim_s.write(gen_shim_asm(functions))
 
     build_shim(temp_asm_file, sdk_lib_dir)

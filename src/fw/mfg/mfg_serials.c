@@ -8,6 +8,10 @@
 #include "console/prompt.h"
 #include "pbl/util/size.h"
 
+#if defined(CONFIG_BOARD_SF32LB52_ULP)
+#include "pbl/drivers/mcu.h"
+#endif
+
 static const uint8_t OTP_SERIAL_SLOT_INDICES[] = {
   OTP_SERIAL,
 };
@@ -30,7 +34,30 @@ const char *mfg_get_serial_number(void) {
       return otp_get_slot(index);
     }
   }
+
+#if defined(CONFIG_BOARD_SF32LB52_ULP)
+  // The ULP development board has no programmed OTP serial. Derive a stable
+  // development serial from the MCU UID instead of reporting the dummy value,
+  // which is intentionally hidden by the mobile app.
+  static char s_generated_serial[MFG_SERIAL_NUMBER_SIZE + 1];
+  if (s_generated_serial[0] == '\0') {
+    uint8_t uid[32];
+    size_t uid_size = sizeof(uid);
+    if (mcu_get_serial(uid, &uid_size) == S_SUCCESS) {
+      uint32_t hash = 2166136261U;
+      for (size_t i = 0; i < uid_size; ++i) {
+        hash = (hash ^ uid[i]) * 16777619U;
+      }
+      snprintf(s_generated_serial, sizeof(s_generated_serial), "ULP%09lX",
+               (unsigned long)(hash % 1000000000UL));
+    } else {
+      strncpy(s_generated_serial, DUMMY_SERIAL, sizeof(s_generated_serial));
+    }
+  }
+  return s_generated_serial;
+#else
   return DUMMY_SERIAL;
+#endif
 }
 
 const char *mfg_get_hw_version(void) {

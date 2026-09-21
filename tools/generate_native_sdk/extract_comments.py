@@ -83,7 +83,7 @@ def scan_file_content_for_defines(content, defines):
 
 
 def parse_file(filename, groups, defines):
-    with open(filename) as f:
+    with open(filename, encoding="utf-8") as f:
         content = f.read()
 
     scan_file_content_for_groups(content, groups)

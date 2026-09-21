@@ -11,6 +11,7 @@ using the (`--board`) flag followed by:
 :`asterix`: (Core Devices) Pebble 2 Duo
 :`obelix@bb2`, `obelix@dvt`, `obelix@pvt`: (Core Devices) Pebble Time 2
 :`getafix@dvt`, `getafix@dvt2`: (Core Devices) Pebble Round 2
+:`sf32lb52_ulp`: SiFli SF32LB52-LCHSPI-ULP bring-up target (experimental)
 :`qemu_emery`, `qemu_flint`, `qemu_gabbro`: dedicated QEMU targets (see {doc}`qemu`)
 
 Keep in mind that some targets may not currently compile as-is.
@@ -44,6 +45,10 @@ Enable manufacturing-only functionality in the PRF build.
 
 :`-DCONFIG_NO_WATCHDOG=y`:
 Disable watchdog
+
+:`-DCONFIG_BRINGUP_NO_STORED_APPS=y`:
+Skip bundled stored applications while bringing up a new board. This is a
+bring-up option, not a shipping configuration.
 
 :`-DCONFIG_DEBUG_INFO_MACROS=y`:
 Compile with `-g3` rather than `-g`, so a debugger can expand the

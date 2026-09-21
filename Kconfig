@@ -33,6 +33,13 @@ config PBLBOOT
       layout with direct XIP. Disable for boards whose SoC bootloader
       consumes a raw image and uses a single firmware slot.
 
+config BRINGUP_NO_STORED_APPS
+    bool "Skip stored apps during board bring-up"
+    help
+      Do not build the bundled stored applications. Intended only for
+      early board bring-up, when the firmware must link before the
+      application SDK and resource surface are fully ported.
+
 menu "Compiler options"
 
 config LTO

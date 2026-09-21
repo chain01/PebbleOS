@@ -9,7 +9,10 @@
 #include <stdarg.h>
 #include <stdio.h>
 
-#ifdef CONFIG_PULSE_EVERYWHERE
+#if defined(CONFIG_BOARD_SF32LB52_ULP)
+// The SiFli boot ROM and second-stage bootloader keep USART1 at 1 Mbaud.
+#define DEFAULT_SERIAL_BAUD_RATE 1000000
+#elif defined(CONFIG_PULSE_EVERYWHERE)
 #define DEFAULT_SERIAL_BAUD_RATE 1000000
 #else
 #define DEFAULT_SERIAL_BAUD_RATE 115200

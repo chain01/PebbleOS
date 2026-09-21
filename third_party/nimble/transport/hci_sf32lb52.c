@@ -300,11 +300,15 @@ void ble_transport_ll_reinit(void) {
 
   hci_h4_sm_init(&s_hci_h4sm, &s_hci_h4_allocs_from_ll, prv_hci_frame_cb);
 
+  PBL_LOG_INFO("NimBLE LCPU: configuring IPC");
   ret = prv_config_ipc();
   PBL_ASSERTN(ret == 0);
 
+  PBL_LOG_INFO("NimBLE LCPU: configuring NVDS");
   lcpu_custom_nvds_config();
+  PBL_LOG_INFO("NimBLE LCPU: powering on (rev=%u)", (unsigned)__HAL_SYSCFG_GET_REVID());
   lcpu_power_on();
+  PBL_LOG_INFO("NimBLE LCPU: powered on");
 }
 
 void ble_transport_ll_init(void) {

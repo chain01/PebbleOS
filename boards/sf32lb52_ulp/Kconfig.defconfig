@@ -1,0 +1,6 @@
+# SPDX-FileCopyrightText: 2026 Core Devices LLC
+# SPDX-License-Identifier: Apache-2.0
+
+# The memory-size values are assigned in defconfig because the SoC defaults are
+# declared before this file is sourced. Kconfig gives the first active default
+# priority, so a later unconditional default cannot reliably override it.

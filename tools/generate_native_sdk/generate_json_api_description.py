@@ -33,7 +33,7 @@ def gen_json_api_description(functions):
 
 def make_json_api_description(functions, pbl_output_src_dir):
     descr_path = os.path.join(pbl_output_src_dir, "fw", DESCRIPTION_FILE)
-    with open(descr_path, "w") as descr_file:
+    with open(descr_path, "w", encoding="utf-8") as descr_file:
         json.dump(
             gen_json_api_description(functions),
             descr_file,

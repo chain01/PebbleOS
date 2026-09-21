@@ -72,7 +72,7 @@ def extract_symbol_info(
     # Parse all the headers at the same time since that is much faster than
     # parsing each one individually
     all_headers_file = os.path.join(output_dir, "all_sdk_headers.h")
-    with open(all_headers_file, "w") as outfile:
+    with open(all_headers_file, "w", encoding="utf-8") as outfile:
         outfile.writelines(f'#include "{f}"\n' for f in filenames)
 
     parse_c_decl.parse_file(

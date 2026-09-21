@@ -16,6 +16,14 @@ config DISPLAY_JDI_SF32LB
     help
       Support for JDI display via SiFli SF32LB.
 
+config DISPLAY_CO5300_SF32LB
+    bool "CO5300 AMOLED (SiFli SF32LB QSPI)"
+    select HAL_SIFLI
+    select HAL_SIFLI_LCD
+    help
+      Support for the CO5300 AMOLED panel through the SiFli LCDC QSPI
+      four-data interface.
+
 config DISPLAY_SHARP_LS013B7DH01_NRF5
     bool "Sharp LS013B7DH01 (nRF5)"
     default y if SOC_NRF52
@@ -28,6 +36,12 @@ config DISPLAY_QEMU
     default y if SOC_QEMU
     help
       Support for the QEMU framebuffer display peripheral.
+
+config DISPLAY_STUB
+    bool "Stub display"
+    help
+      No-op display backend for board bring-up. The compositor and display
+      services run normally, but no pixels are emitted.
 
 module = DRIVER_DISPLAY
 module-str = Display

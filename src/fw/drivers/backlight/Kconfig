@@ -43,6 +43,11 @@ config BACKLIGHT_QEMU_COLOR
     select BACKLIGHT_HAS_COLOR
     help
       Enable support for RGB backlight colors in the QEMU backlight driver.
+
+config BACKLIGHT_STUB
+    bool "Stub"
+    help
+      No-op backlight driver for board bring-up.
   
 module = DRIVER_BACKLIGHT
 module-str = Backlight

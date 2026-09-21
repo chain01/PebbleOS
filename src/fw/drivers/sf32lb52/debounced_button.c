@@ -73,10 +73,19 @@ static void prv_button_interrupt_handler(bool *should_context_switch) {
   prv_enable_button_timer();
 }
 
+static bool prv_button_exists(ButtonId id) {
+  const ButtonConfig *button = &BOARD_CONFIG_BUTTON.buttons[id];
+  return button->port != GPIO_Port_NULL && button->pin != GPIO_Pin_NULL;
+}
+
 void debounced_button_init(void) {
   button_init();
 
   for (int i = 0; i < NUM_BUTTONS; ++i) {
+    if (!prv_button_exists(i)) {
+      continue;
+    }
+
     const ExtiConfig config = {
       .peripheral = BOARD_CONFIG_BUTTON.buttons[i].port,
       .gpio_pin = BOARD_CONFIG_BUTTON.buttons[i].pin,

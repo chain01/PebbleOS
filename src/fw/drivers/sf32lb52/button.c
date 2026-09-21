@@ -11,11 +11,20 @@
 
 static bool s_rotated_180 = false;
 
+static bool prv_button_exists(ButtonId id) {
+  const ButtonConfig *button = &BOARD_CONFIG_BUTTON.buttons[id];
+  return button->port != GPIO_Port_NULL && button->pin != GPIO_Pin_NULL;
+}
+
 void button_set_rotated(bool rotated_180) {
   s_rotated_180 = rotated_180;
 }
 
 bool button_is_pressed(ButtonId id) {
+  if (!prv_button_exists(id)) {
+    return false;
+  }
+
   if (s_rotated_180 && (id == BUTTON_ID_UP)) {
     id = BUTTON_ID_DOWN;
   } else if (s_rotated_180 && (id == BUTTON_ID_DOWN)) {
@@ -40,6 +49,10 @@ uint8_t button_get_state_bits(void) {
 
 void button_init(void) {
   for (int i = 0; i < NUM_BUTTONS; ++i) {
+    if (!prv_button_exists(i)) {
+      continue;
+    }
+
     const InputConfig config = {
       .gpio = BOARD_CONFIG_BUTTON.buttons[i].port,
       .gpio_pin = BOARD_CONFIG_BUTTON.buttons[i].pin,

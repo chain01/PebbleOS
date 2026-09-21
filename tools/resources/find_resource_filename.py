@@ -14,17 +14,13 @@ def find_most_specific_filename(bld, env, root_node, general_filename):
     if "~" in general_filename:
         bld.fatal("Generic resource filenames cannot contain a tilde (~).")
 
-    basename, extension = os.path.splitext(general_filename)
-
-    # The filenames we get will have extra bits of folder at the start, so trim those.
-    root_len = len(root_node.relpath()) + 1
-    if root_node.relpath() == ".":
-        root_len = 2
+    native_filename = general_filename.replace("/", os.sep)
+    basename, extension = os.path.splitext(native_filename)
 
     glob_result = glob(
         f"{os.path.join(root_node.relpath(), basename)}*{extension}"
     )
-    options = [x[root_len:] for x in glob_result if os.path.isfile(x)]
+    options = [os.path.relpath(x, root_node.relpath()) for x in glob_result if os.path.isfile(x)]
 
     specificities = {}
     try:
@@ -62,4 +58,4 @@ def find_most_specific_filename(bld, env, root_node, general_filename):
             )
         )
 
-    return top_candidates[0]
+    return top_candidates[0].replace(os.sep, "/")

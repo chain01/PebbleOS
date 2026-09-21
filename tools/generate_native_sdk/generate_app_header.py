@@ -50,7 +50,7 @@ def make_app_header(exports_tree, output_filename, header_type, inject_text):
         os.makedirs(output_filename_dir)
 
     """ header_type can be either "app", "worker" or "both" """
-    with open(output_filename, "w") as f:
+    with open(output_filename, "w", encoding="utf-8") as f:
         writeline(f, "#pragma once")
         writeline(f)
         if inject_text is not None:

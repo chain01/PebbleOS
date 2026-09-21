@@ -25,7 +25,23 @@ extern uint8_t __isr_stack_start__[];
 
 extern int main(void);
 
+#if defined(CONFIG_BOARD_SF32LB52_ULP) && !defined(CONFIG_RELEASE)
+static void prv_early_boot_marker(const char *marker) {
+  for (const char *p = marker; *p; ++p) {
+    while ((USART1->ISR & USART_ISR_TXE) == 0) {
+    }
+    USART1->TDR = (uint8_t)*p;
+  }
+  while ((USART1->ISR & USART_ISR_TC) == 0) {
+  }
+}
+#endif
+
 PBL_NAKED PBL_NORETURN void Reset_Handler(void) {
+#if defined(CONFIG_BOARD_SF32LB52_ULP) && !defined(CONFIG_RELEASE)
+  prv_early_boot_marker("PBULP_ENTER\r\n");
+#endif
+
   // Set MSPLIM to protect the ISR stack
   __set_MSPLIM((uint32_t)__isr_stack_start__);
   // PSPLIM is set per-task by FreeRTOS during context switches
@@ -44,6 +60,10 @@ PBL_NAKED PBL_NORETURN void Reset_Handler(void) {
   memset(__bss_start, 0, __bss_end - __bss_start);
 
   SystemInit();
+
+#if defined(CONFIG_BOARD_SF32LB52_ULP) && !defined(CONFIG_RELEASE)
+  prv_early_boot_marker("PBULP_INIT_OK\r\n");
+#endif
 
   main();
 

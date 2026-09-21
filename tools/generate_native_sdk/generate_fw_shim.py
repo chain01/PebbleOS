@@ -37,5 +37,7 @@ def gen_function_pointer_array(functions):
 
 
 def make_fw_shims(functions, pbl_output_src_dir):
-    with open(os.path.join(pbl_output_src_dir, "fw", FUNCTION_PTR_FILE), "w") as fptr_c:
+    with open(
+        os.path.join(pbl_output_src_dir, "fw", FUNCTION_PTR_FILE), "w", encoding="utf-8"
+    ) as fptr_c:
         fptr_c.write(gen_function_pointer_array(functions))

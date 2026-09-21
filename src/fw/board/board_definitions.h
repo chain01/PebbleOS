@@ -17,6 +17,8 @@
 #include "boards/board_qemu_flint.h"
 #elif defined(CONFIG_BOARD_QEMU_GABBRO)
 #include "boards/board_qemu_gabbro.h"
+#elif defined(CONFIG_BOARD_SF32LB52_ULP)
+#include "boards/board_sf32lb52_ulp.h"
 #else
 #error "Unknown board definition"
 #endif

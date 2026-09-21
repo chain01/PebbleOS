@@ -49,6 +49,9 @@ endif()
 
 file(GLOB_RECURSE sources CONFIGURE_DEPENDS *.c)
 pbl_filter_sources(sources EXCLUDE ${excl})
+if(NOT CONFIG_MIC)
+  list(APPEND sources voice/voice_window_stub.c)
+endif()
 
 # applib_malloc.json describes the size of every applib object handed out
 # to apps; the generator turns it into the allocator's tables.

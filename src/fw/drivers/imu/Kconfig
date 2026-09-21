@@ -27,6 +27,11 @@ config ACCEL_LSM6DSO
     help
       Support for the ST LSM6DSO accelerometer/gyroscope.
 
+config ACCEL_STUB
+    bool "Stub"
+    help
+      No-op accelerometer driver for board bring-up.
+
 endchoice
 
 if ACCEL_LIS2DW12

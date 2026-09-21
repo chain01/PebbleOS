@@ -122,6 +122,8 @@ bool bt_driver_start(BTDriverConfig *config) {
   int rc;
   bool f_rc;
 
+  PBL_LOG_INFO("BT driver start requested (state=%u)", (unsigned)s_driver_state);
+
   if (s_driver_state == DriverStateStarted) {
     PBL_LOG_WRN("Driver already started; skipping start");
     return true;
@@ -156,6 +158,7 @@ bool bt_driver_start(BTDriverConfig *config) {
 #endif
 
   ble_hs_sched_start();
+  PBL_LOG_INFO("BT host start scheduled");
   f_rc = (pbl_sem_take(&s_host_started, PBL_MSEC(s_bt_stack_start_stop_timeout_ms)) == 0);
   if (!f_rc) {
     // core_dump wakes the LCPU itself, so its RAM is captured here too.

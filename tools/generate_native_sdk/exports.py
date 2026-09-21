@@ -184,7 +184,7 @@ def parse_exports_list(
 
 
 def parse_export_file(filename, internal_sdk_build, frozen_revision=None):
-    with open(filename, "r") as f:
+    with open(filename, "r", encoding="utf-8") as f:
         shim_defs = json.load(f)
         file_revision = int(shim_defs["revision"])
 

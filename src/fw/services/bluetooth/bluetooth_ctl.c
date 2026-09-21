@@ -80,7 +80,9 @@ static void prv_comm_start(void) {
   // no-op bonding handlers, so doing it early is harmless for them too.
   bt_persistent_storage_register_existing_ble_bondings();
 
+  PBL_LOG_INFO("Starting Bluetooth driver");
   s_comm_is_running = bt_driver_start(config);
+  PBL_LOG_INFO("Bluetooth driver start result=%u", (unsigned)s_comm_is_running);
   kernel_free(config);
 
   if (s_comm_is_running) {
@@ -142,6 +144,10 @@ static void prv_comm_state_change(void *context) {
   pbl_mutex_lock(&s_comm_state_change_mutex, PBL_FOREVER);
   s_comm_state_change_eval_is_scheduled = false;
   bool is_active_mode = bt_ctl_is_bluetooth_active();
+  PBL_LOG_INFO("BT state eval: active=%u running=%u enabled=%u airplane=%u override=%u",
+               (unsigned)is_active_mode, (unsigned)s_comm_is_running,
+               (unsigned)s_comm_enabled, (unsigned)s_comm_airplane_mode_on,
+               (unsigned)s_comm_override);
   if (is_active_mode != s_comm_is_running) {
     if (is_active_mode) {
       prv_comm_start();
@@ -162,6 +168,8 @@ static void prv_comm_state_change(void *context) {
 }
 
 void bt_ctl_set_enabled(bool enabled) {
+  PBL_LOG_INFO("BT set_enabled(%u), initialized=%u", (unsigned)enabled,
+               (unsigned)s_comm_initialized);
   if (!s_comm_initialized) {
     PBL_LOG_ERR("Error: Bluetooth isn't initialized yet");
     return;
@@ -218,6 +226,7 @@ void bt_ctl_set_airplane_mode_async(bool enabled) {
 void bt_ctl_init(void) {
   s_comm_airplane_mode_on = bt_persistent_storage_get_airplane_mode_enabled();
   s_comm_initialized = true;
+  PBL_LOG_INFO("BT ctl initialized: airplane=%u", (unsigned)s_comm_airplane_mode_on);
 
   gatt_client_subscription_boot();
 }

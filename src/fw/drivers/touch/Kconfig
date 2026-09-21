@@ -14,6 +14,12 @@ config TOUCH_CST816
     help
       Support for the Hynitron CST816 touch controller.
 
+config TOUCH_FT6146
+    bool "FocalTech FT6146"
+    select I2C
+    help
+      Support for the FocalTech FT6146 touch controller.
+
 config TOUCH_QEMU
     bool "QEMU Touchscreen"
     default y if SOC_QEMU

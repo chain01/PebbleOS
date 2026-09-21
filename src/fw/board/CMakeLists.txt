@@ -14,6 +14,8 @@ elseif(CONFIG_BOARD_QEMU_FLINT)
 elseif(CONFIG_BOARD_QEMU_GABBRO)
   # qemu_gabbro reuses the getafix round display row info data
   set(sources boards/board_qemu_gabbro.c displays/display_getafix.c)
+elseif(CONFIG_BOARD_SF32LB52_ULP)
+  set(sources boards/board_sf32lb52_ulp.c)
 else()
   message(FATAL_ERROR "Unknown board ${PBL_BOARD}")
 endif()

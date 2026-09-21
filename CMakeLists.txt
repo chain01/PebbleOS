@@ -49,7 +49,10 @@ project(pebbleos VERSION 1.0 LANGUAGES C ASM)
 # Build steps that call the toolchain by name -- the native SDK generator
 # asks for arm-none-eabi-gcc -- find it next to the compiler CMake chose.
 get_filename_component(toolchain_bin ${CMAKE_C_COMPILER} DIRECTORY)
-set(PBL_TOOLCHAIN_ENV ${CMAKE_COMMAND} -E env "PATH=${toolchain_bin}:$ENV{PATH}")
+string(REPLACE "\\" "/" PBL_HOST_PATH "$ENV{PATH}")
+set(PBL_ENV_PATH "${toolchain_bin};${PBL_HOST_PATH}")
+string(REPLACE ";" "\\;" PBL_ENV_PATH "${PBL_ENV_PATH}")
+set(PBL_TOOLCHAIN_ENV ${CMAKE_COMMAND} -E env "PATH=${PBL_ENV_PATH}")
 
 # Kconfig symbols given on the command line (-DCONFIG_FOO=y) are passed
 # through to Kconfig as overrides.
@@ -98,7 +101,7 @@ add_subdirectory(kernel)
 add_subdirectory(soc)
 add_subdirectory(subsys)
 add_subdirectory(src)
-if(NOT CONFIG_RECOVERY_FW)
+if(NOT CONFIG_RECOVERY_FW AND NOT CONFIG_BRINGUP_NO_STORED_APPS)
   add_subdirectory(apps/stored)
 endif()
 

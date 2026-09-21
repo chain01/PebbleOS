@@ -81,12 +81,12 @@ endif()
 function(pbl_stored_app name)
   set(app_bin ${CMAKE_CURRENT_BINARY_DIR}/${name})
   set(app_ldscript ${CMAKE_CURRENT_SOURCE_DIR}/pebble_app.ld)
-  set(generate ${PBL_TOOLCHAIN_ENV} ${PYTHON_EXECUTABLE} ${PBL_BASE}/tools/cmake/generate.py)
+  set(generate_args ${PYTHON_EXECUTABLE} ${PBL_BASE}/tools/cmake/generate.py)
 
   # appinfo.json describes the app to the launcher and the app store.
   add_custom_command(
     OUTPUT ${app_bin}/appinfo.auto.c
-    COMMAND ${generate} appinfo
+    COMMAND ${PBL_TOOLCHAIN_ENV} ${generate_args} appinfo
             --input ${CMAKE_CURRENT_SOURCE_DIR}/${name}/appinfo.json
             --output ${app_bin}/appinfo.auto.c
     DEPENDS ${CMAKE_CURRENT_SOURCE_DIR}/${name}/appinfo.json

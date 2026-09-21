@@ -7,7 +7,7 @@ if(CONFIG_BOARD_ASTERIX)
     ${PBL_BASE}/third_party/hal_nordic/nrfx/mdk/system_nrf52840.c
     startup_cortex_m.c
   )
-elseif(CONFIG_BOARD_OBELIX OR CONFIG_BOARD_GETAFIX)
+elseif(CONFIG_BOARD_OBELIX OR CONFIG_BOARD_GETAFIX OR CONFIG_BOARD_SF32LB52_ULP)
   pbl_library_sources(startup_sf32lb52.c)
 elseif(CONFIG_QEMU)
   pbl_library_sources(startup_qemu.c)

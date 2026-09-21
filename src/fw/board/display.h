@@ -35,6 +35,8 @@ typedef struct {
 #include "displays/display_qemu_flint.h"
 #elif defined(CONFIG_BOARD_QEMU_GABBRO)
 #include "displays/display_qemu_gabbro.h"
+#elif defined(CONFIG_BOARD_SF32LB52_ULP)
+#include "displays/display_sf32lb52_ulp.h"
 #else
 #error "Unknown display definition for board"
 #endif // BOARD_*

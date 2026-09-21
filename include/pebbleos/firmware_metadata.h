@@ -105,6 +105,11 @@ _Static_assert(sizeof(struct FirmwareMetadata) ==
 #define FIRMWARE_METADATA_HW_PLATFORM (FirmwareMetadataPlatformPebbleGetafixDVT)
 #elif defined(CONFIG_BOARD_GETAFIX_DVT2)
 #define FIRMWARE_METADATA_HW_PLATFORM (FirmwareMetadataPlatformPebbleGetafixDVT2)
+#elif defined(CONFIG_BOARD_SF32LB52_ULP)
+// The ULP bring-up board uses the Emery platform. Report the Obelix PVT
+// hardware revision so the mobile app maps it to a Pebble Time 2 instead of
+// the generic Unknown platform.
+#define FIRMWARE_METADATA_HW_PLATFORM (FirmwareMetadataPlatformPebbleObelixPVT)
 #elif defined(CONFIG_BOARD_QEMU_EMERY)
 #define FIRMWARE_METADATA_HW_PLATFORM (FirmwareMetadataPlatformPebbleEmeryEmu)
 #elif defined(CONFIG_BOARD_QEMU_FLINT)

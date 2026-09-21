@@ -215,6 +215,9 @@ def parse_file(
     src_dir = os.path.join(root_dir, "src")
 
     args = [
+        "--target=arm-none-eabi",
+        "-fshort-enums",
+        "-D_USE_LONG_TIME_T",
         f"-I{src_dir}/core",
         f"-I{root_dir}/include",
         f"-I{root_dir}/subsys",

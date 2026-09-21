@@ -11,6 +11,8 @@
 #include "flash_region_gd25lq255e.h"
 #elif defined(CONFIG_FLASH_GD25Q256E)
 #include "flash_region_gd25q256e.h"
+#elif defined(CONFIG_FLASH_PY25Q128HA) || defined(CONFIG_FLASH_XT25F128F)
+#include "flash_region_py25q128ha.h"
 #endif
 
 #ifdef CONFIG_PBLBOOT
@@ -36,8 +38,10 @@
 #define FLASH_REGION_FIRMWARE_DEST_END   FLASH_REGION_FIRMWARE_SLOT_1_END
 
 // If we don't have pblboot, use firmware slot to store CD
+#ifndef FLASH_REGION_CD_BEGIN
 #define FLASH_REGION_CD_BEGIN            FLASH_REGION_FIRMWARE_DEST_BEGIN
 #define FLASH_REGION_CD_END              FLASH_REGION_FIRMWARE_DEST_END
+#endif
 #endif
 
 #define FLASH_REGION_FIRMWARE_DEST_START (FLASH_REGION_FIRMWARE_DEST_BEGIN + FIRMWARE_OFFSET)

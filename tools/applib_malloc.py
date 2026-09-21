@@ -6,9 +6,6 @@ import json
 import os
 import string
 
-import sh
-
-
 class ApplibType:
     def __init__(self, type_dict):
         self.name = type_dict["name"]
@@ -54,7 +51,7 @@ def writeline(f, str=""):
 
 
 def write_template(f, filepath, replace):
-    with open(filepath) as template_file:
+    with open(filepath, encoding="utf-8") as template_file:
         template = string.Template(template_file.read())
         f.write(template.safe_substitute(**replace) + "\n")
 
@@ -62,7 +59,7 @@ def write_template(f, filepath, replace):
 def generate_header(data, output_filename):
     all_types = get_types(data)
 
-    with open(output_filename, "w") as f:
+    with open(output_filename, "w", encoding="utf-8") as f:
         write_template(
             f,
             "tools/applib_malloc.template.h",
@@ -77,7 +74,7 @@ def generate_header(data, output_filename):
 
 def generate_implementation(data, output_filename, min_sdk, disable_size_checks=False):
     all_types = get_types(data)
-    with open(output_filename, "w") as f:
+    with open(output_filename, "w", encoding="utf-8") as f:
         includes = [f'#include "{h}"' for h in data["headers"]]
         applib_enum_types = [f"ApplibType_{t.name}" for t in all_types]
         applib_malloc_types = [
@@ -105,7 +102,7 @@ def generate_implementation(data, output_filename, min_sdk, disable_size_checks=
 def generate_files(
     json_filename, header_filename, impl_filename, min_sdk, disable_size_checks=False
 ):
-    with open(json_filename) as f:
+    with open(json_filename, encoding="utf-8") as f:
         data = json.load(f)
 
     generate_header(data, header_filename)
@@ -114,6 +111,8 @@ def generate_files(
 
 def _get_sizeof_type(elf_filename, typename):
     def _run_gdb(cmd):
+        import sh
+
         running_cmd = sh.arm_none_eabi_gdb(elf_filename, batch=True, nx=True, ex=cmd)
         result = str(running_cmd)
 

@@ -79,6 +79,8 @@ def cmd_app_registry(args):
 
     system_apps = definition["system_apps"]
     resource_apps = definition["resource_apps"]
+    if config.get("CONFIG_BRINGUP_NO_STORED_APPS") == "y":
+        resource_apps = []
 
     def entry_enabled(entry):
         defines = entry.get("ifdefs") or []

@@ -134,6 +134,7 @@ if(CONFIG_HAL_SIFLI_MPI)
   list(APPEND micro_sources
     SiFli-SDK/drivers/hal/bf0_hal_mpi.c
     SiFli-SDK/drivers/hal/bf0_hal_mpi_ex.c
+    SiFli-SDK/drivers/hal/bf0_hal_mpi_psram.c
     SiFli-SDK/drivers/hal/flash_table.c
   )
 endif()
