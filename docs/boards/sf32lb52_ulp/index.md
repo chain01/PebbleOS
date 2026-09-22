@@ -17,7 +17,8 @@ Stage 1 intentionally keeps the board-specific surface small:
 - BLE advertising and GATT connection verified with a host-side scanner
 - CO5300 390x450 QSPI AMOLED with full-screen scaling and PSRAM framebuffer
 - FT6146 touch controller with scaled logical coordinates
-- No-op battery, accelerometer, ambient light, backlight and vibration drivers
+- AW32001 battery/USB/charger reporting and CO5300 panel brightness control
+- Stub accelerometer, ambient light and vibration drivers
 - MPI1 8 MiB PSRAM initialization for the panel framebuffer
 - Stored apps disabled for the first firmware link (`CONFIG_BRINGUP_NO_STORED_APPS`).
 
@@ -30,7 +31,7 @@ The following hardware is deliberately not enabled yet:
 - LTR-303ALS ambient light sensor
 - MMC5603NJ magnetometer
 - Microphone, speaker and real vibration motor
-- Battery charger and real fuel-gauge reporting
+- Coulomb-counting fuel gauge and validated charge-current calibration
 
 Heart-rate monitoring is explicitly out of scope for this ULP target.
 
@@ -46,6 +47,9 @@ Heart-rate monitoring is explicitly out of scope for this ULP target.
 | Up/Down | not populated | absent-button entries |
 | Display | CO5300 QSPI, 390x450 | validated, 200x228 logical framebuffer scaled to full panel |
 | Touch | FT6146 over I2C1 | validated, scaled to logical coordinates |
+| Charger | AW32001 over I2C2, PA10/PA11 | battery, charging and USB detection validated |
+| VBUS detect | PA44 | active-high on the tested board revision |
+| Battery ADC | GPADC channel 7 | SF32LB52x VBAT channel, vendor ULP curve |
 
 The ULP display is a 390x450 AMOLED panel. The logical Pebble framebuffer is
 kept at 200x228, matching the existing Emery geometry, and is scaled in the
@@ -111,6 +115,7 @@ productization tasks.
 - Port the FT6146 touch driver
 - Map KEY1/KEY2 and touch gestures to Pebble navigation
 - Implement battery/USB/charger reporting for the ULP board revision
+  (AW32001/I2C2 and PA44 detection are implemented and hardware-validated)
 
 ### P4: watch peripherals
 
@@ -191,12 +196,20 @@ Validated on 2026-09-21 with the ULP board connected as `COM16`:
 7. The PBLBOOT build selected and booted valid slot 0.
 8. Erasing the slot 0 header caused PBLBOOT to load PRF automatically; slot 0
    was restored after the test.
+9. A blank board was fully provisioned with ROM flash table, PBLBOOT, slot0,
+   slot1, system resources and PRF; PBLBOOT reported both slots valid and
+   booted slot0.
+10. AW32001 reported `SYS_STATUS=0x52` while charging, PA44 reported VBUS
+    present, and GPADC channel 7 measured a plausible battery voltage.
+11. CO5300 `WRDISBV` brightness control is active; light-service OFF uses a
+    3% AMOLED floor instead of full display off.
 
 Still to validate after enabling the real hardware backends:
 
 - Full phone feature interoperability: notifications, timeline, weather,
   watchface settings and app message delivery
-- battery, sensors and audio
+- Battery percentage accuracy and charge-current calibration
+- sensors and audio
 
 ## Known assumptions and risks
 
@@ -206,9 +219,9 @@ Still to validate after enabling the real hardware backends:
   `0x12320000`, and PRF at `0x12A20000`. The ROM flash table remains an
   SDK-generated first-stage dependency and must be made repository-owned before
   production.
-- The ULP board has multiple power/charger revisions. The source tree contains
-  AW32001 references while public board documentation also mentions SY6103.
-  Confirm the physical board revision before implementing battery management.
+- The tested ULP revision uses AW32001 at I2C2 address `0x49` and active-high
+  PA44 VBUS detection. Other board revisions still need their charger and
+  polarity confirmed before sharing a production firmware image.
 - Display and touch are hardware-validated. Full-screen scaling uses the EPIC
   GPU with PSRAM strip staging; the previous 16-row black-line artifact is
   fixed.

@@ -598,6 +598,71 @@ bootloader/PBLBOOT 选择并启动该 recovery 镜像，以及与其配套的 OT
 slot 切换和回滚流程；这些完成前，PRF 只能算“已安装并可被系统识别”，
 还不能算“可自动恢复启动”。
 
+## P1 电源、USB 检测与 CO5300 待机亮度
+
+2026-09-22 在一台全新区块上完成全量分区恢复和 P1 电源链路验证。
+
+### 全量分区
+
+新板必须按以下顺序恢复完整启动链，不能只写 normal/PRF：
+
+```powershell
+sftool -c SF32LB52 -p COM16 -b 1000000 --after no_reset write_flash --verify `
+  "$env:TEMP\pebble-ulp-ftab.bin@0x12000000" `
+  "$PBLBOOT\build\zephyr\zephyr.bin@0x12010000" `
+  "build-ulp-pbl-normal\pebbleos.bin@0x12020000" `
+  "build-ulp-pbl-normal\pebbleos.bin@0x12320000" `
+  "build-ulp-pbl-normal\system_resources.pbpack@0x12620000" `
+  "build-ulp-pbl-prf\pebbleos.bin@0x12A20000"
+```
+
+其中 `pebble-ulp-ftab.bin` 是已验证的 `FCES` ROM flash table，PBLBOOT
+为 64 KiB 分区。只烧 slot0/PRF 时新板会在 ROM 阶段停在 `SFBL/AB`，不会
+进入主固件。
+
+### CO5300 亮度与待机
+
+CO5300 数据手册中的 `IDMON (0x39)` 不是 AOD，只是切换到 16.7M/4096/8
+色低色深模式；`DSTBON (0x4F)` 会进入深待机并关闭显示。本板没有可用的
+独立 AMOLED AOD 控制器配置，因此采用 light-service 兼容方案：
+
+- 新增 `CONFIG_BACKLIGHT_CO5300_SF32LB`。
+- 正常亮度写入 `WRDISBV (0x51)`，0-100% 线性映射到 0x00-0xFF。
+- light-service 进入 OFF（约 5 秒无交互）时传入 0%；驱动层保持 3%
+  亮度，保证 AMOLED 不黑屏。
+- 触摸/按键唤醒后恢复用户亮度。
+- ULP 板 `backlight_on_percent` 从 50% 改为 100%。
+
+修改后固件已完成编译和实机启动验证；待机低亮与触摸/按键唤醒恢复仍需
+做最终视觉确认。
+
+### AW32001、电池 ADC 与 USB
+
+- I2C2：PA10/SCL、PA11/SDA，400 kHz，AW32001 地址 `0x49`。
+- 充电器已接入，禁用 watchdog，目标电压 `4215 mV`。
+- VBUS_DET/CHG_INT：PA44；该批次实测为高有效，USB 插入时
+  `VBUS_DET=1`。
+- AW32001 `SYS_STATUS (0x08)` bit4:3 映射为
+  no charging/pre-charge/charging/full。
+- 电池电压使用 SF32LB52x 专用 GPADC channel 7，并乘 HAL 的
+  `vbat_factor`。SDK Kconfig 默认 channel 1 在该芯片上读数为接近 0 V，
+  不能用于此板。
+- 电池百分比曲线改为 SiFli SDK `battery_table.c` 的 ULP 放电/充电曲线。
+- 板级在 `board_init()` 中提前拉高 PA1/PA26/PA38/PA42 电源轨，否则
+  `battery_init()` 访问 AW32001 时 I2C2 会持续 NACK。
+
+验证日志：
+
+```text
+[00:00:00.605] <inf> driver_battery_aw32001: AW32001 ready: 3798 mV,
+               status=0x52, vbus_det=1, plugged=1
+[00:00:00.707] <inf> driver_touch_ft6146: FT6146 ID: 0x6456
+[00:00:00.398] <inf> display_co5300: CO5300 ready: id=0x331100
+```
+
+`status=0x52` 的 bit4:3 为 `2`，表示正在 CC 充电。全量分区后的启动日志中
+slot0/slot1 均通过 PBLBOOT 校验，并加载 slot0。
+
 ## 当前限制与下一步
 
 当前版本已经完成最小系统启动，但仍不是可量产镜像：
@@ -606,7 +671,8 @@ slot 切换和回滚流程；这些完成前，PRF 只能算“已安装并可�
   表盘安装已验证；通知、时间线、天气和表盘设置等完整手机功能仍需测试。
 - watchdog 已启用；手机重连和天气/BLE 同步时仍需消除偶发的 KernelBG 短时滞后。
 - PULSE 已关闭，正式日志方案需要恢复协议并接入解码工具。
-- battery、sensor、audio 仍为 stub 或未验证；display 和 touch 已通过硬件验证。
+- battery 已接入 AW32001 和 VBAT ADC；百分比精度、充电电流和完整充放电
+  曲线仍需验证。sensor、audio 仍为 stub 或未验证。
 - HRM 不在本 ULP 目标范围内，不再列为后续适配项。
 - 全屏缩放已通过 EPIC GPU 分段加速完成，旧的 CPU 缩放描述已废弃。
 - normal resource map 仍临时复用 Obelix map；PRF 已有 ULP 专用资源映射。
