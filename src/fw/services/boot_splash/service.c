@@ -11,6 +11,7 @@
 #include <pbl/drivers/display/display.h>
 #include "kernel/pbl_malloc.h"
 #include "kernel/util/sleep.h"
+#include <pbl/drivers/rtc.h>
 
 #include <string.h>
 
@@ -47,6 +48,7 @@ PBL_THREAD_STACK_DEFINE(s_boot_splash_stack, BOOT_SPLASH_TASK_STACK_SIZE);
 static struct pbl_thread *s_boot_splash_task;
 static volatile bool s_boot_splash_running;
 static uint8_t *s_boot_splash_fb;
+static RtcTicks s_boot_splash_start_ticks;
 
 // Draw a filled rectangle
 static void prv_draw_filled_rect(uint8_t *fb, int16_t x0, int16_t y0, int16_t width, int16_t height,
@@ -155,6 +157,7 @@ void boot_splash_start(void) {
 
   // Start the boot splash task
   s_boot_splash_running = true;
+  s_boot_splash_start_ticks = rtc_get_ticks();
   struct pbl_thread_attr attr = {
     .name = "BootSplash",
     .entry = prv_boot_splash_task,
@@ -170,6 +173,16 @@ void boot_splash_start(void) {
 
 void boot_splash_stop(void) {
   if (s_boot_splash_running && s_boot_splash_task != NULL) {
+#if defined(CONFIG_BOARD_SF32LB52_ULP)
+    // The ULP splash starts later than on other boards because init_drivers()
+    // must power the panel/PSRAM first. Keep it visible long enough to play.
+    const uint32_t min_duration_ms = 1500U;
+    const uint32_t elapsed_ms =
+        (uint32_t)((rtc_get_ticks() - s_boot_splash_start_ticks) * 1000U / RTC_TICKS_HZ);
+    if (elapsed_ms < min_duration_ms) {
+      pbl_thread_sleep(PBL_MSEC(min_duration_ms - elapsed_ms));
+    }
+#endif
     s_boot_splash_running = false;
     // Wait for the splash task to finish (max ~10ms delay due to short sleep intervals)
     while (s_boot_splash_task != NULL) {

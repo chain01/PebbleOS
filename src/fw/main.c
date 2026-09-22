@@ -272,6 +272,12 @@ static PBL_NOINLINE void prv_main_task_init(void) {
 
   clock_init();
 
+#if defined(CONFIG_BOARD_SF32LB52_ULP)
+  // ULP needs the display/PSoC rails and DLL2 configured by init_drivers()
+  // before display_init() can bring up PSRAM.
+  boot_splash_start();
+#endif
+
 #if defined(CONFIG_IS_BIGBOARD)
   // Program a random S/N into the Bigboard in case it's not been done yet:
   mfg_write_bigboard_serial_number();
