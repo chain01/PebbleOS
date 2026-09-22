@@ -663,6 +663,25 @@ CO5300 数据手册中的 `IDMON (0x39)` 不是 AOD，只是切换到 16.7M/4096
 `status=0x52` 的 bit4:3 为 `2`，表示正在 CC 充电。全量分区后的启动日志中
 slot0/slot1 均通过 PBLBOOT 校验，并加载 slot0。
 
+### 充电弹窗与输入卡死
+
+新板带电池并插电后，Pebble 的 “Charging” 模态弹窗会走到当前 ULP 尚未
+适配好的 modal/resource 路径，导致 Launcher 长时间不喂 task watchdog，
+KernelBG 持续不喂狗，约 9 秒后触发复位。表现上就是按键/触摸似乎都无
+反应。
+
+为恢复开发板输入能力，ULP 暂不自动显示 charging/fully-charged 模态；
+充电状态仍由 AW32001、battery service 和状态栏维护。实机通过串口控制台
+确认：
+
+- PA34 Back：EXT 中断、down/up 消抖事件。
+- PA43 Select：EXT 中断、down/up 消抖事件。
+- FT6146：触摸中间产生 down/up，并唤醒屏幕。
+- 屏蔽充电模态后连续运行 20 秒无 KernelBG watchdog 复位。
+
+根因修复应放在后续 modal/resource 适配中；在修好之前不要让 ULP 自动弹
+充电模态。
+
 ## 当前限制与下一步
 
 当前版本已经完成最小系统启动，但仍不是可量产镜像：

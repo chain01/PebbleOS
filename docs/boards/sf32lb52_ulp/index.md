@@ -245,6 +245,9 @@ Still to validate after enabling the real hardware backends:
   mobile-app `Ignore Missing PRF` workaround should no longer be necessary,
   but it still needs an App retest. OTA, slot switching and rollback remain to
   be validated.
+- ULP currently suppresses the automatic charging/fully-charged modal because
+  that modal path stalls the launcher and blocks button/touch processing.
+  Charging state is still reported by the battery service and status UI.
 - `LOG_DOMAIN_BT_STACK` must be nonzero for HCI/NimBLE transport diagnostics to
   be emitted; otherwise transport errors are silently dropped by the logger.
 
