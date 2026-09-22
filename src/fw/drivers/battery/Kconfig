@@ -14,6 +14,14 @@ config BATTERY_PMIC
       Battery management via external PMIC. Used on platforms where the
       PMIC handles battery monitoring (asterix, obelix, getafix).
 
+config BATTERY_AW32001
+    bool "AW32001 charger and battery ADC"
+    depends on I2C
+    depends on SOC_SF32LB52
+    help
+      AW32001 charger, USB/VBUS detection and battery voltage monitoring
+      through the SiFli GPADC.
+
 config BATTERY_QEMU
     bool "QEMU Battery"
     default y if SOC_QEMU
@@ -24,5 +32,9 @@ config BATTERY_STUB
     bool "Stub"
     help
       Fixed-value battery driver for board bring-up.
+
+module = DRIVER_BATTERY
+module-str = Battery
+source "subsys/logging/Kconfig.template.log_level"
 
 endif # BATTERY

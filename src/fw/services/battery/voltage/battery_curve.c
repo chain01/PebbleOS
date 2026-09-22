@@ -17,13 +17,47 @@ typedef struct VoltagePoint {
 // TODO: Move these curves somewhere else. Related: PBL-21049
 
 // TODO(ASTERIX,OBELIX): Needs customization for Asterix/Obelix
-#if defined(CONFIG_BOARD_ASTERIX) || defined(CONFIG_BOARD_OBELIX) ||        \
-    defined(CONFIG_BOARD_SF32LB52_ULP) || defined(CONFIG_BOARD_QEMU_EMERY) || \
-    defined(CONFIG_BOARD_QEMU_FLINT) || defined(CONFIG_BOARD_QEMU_GABBRO)
-// When the voltage drops below these (mV), the watch will start heading for standby (after delay)
+#if defined(CONFIG_BOARD_SF32LB52_ULP)
+// SiFli sf32lb52-lchspi-ulp battery_table.c, converted from 0.01 mV to mV.
+#define BATTERY_CRITICAL_VOLTAGE_CHARGING    3558
+#define BATTERY_CRITICAL_VOLTAGE_DISCHARGING 3504
+static VoltagePoint discharge_curve[] = {
+  {0, 3504},
+  {2, 3616},
+  {5, 3681},
+  {10, 3719},
+  {20, 3796},
+  {30, 3839},
+  {40, 3861},
+  {50, 3900},
+  {60, 3961},
+  {70, 3996},
+  {80, 4013},
+  {90, 4032},
+  {100, 4181}
+};
+
+static const VoltagePoint charge_curve[] = {
+  {0, 3558},
+  {2, 3670},
+  {5, 3728},
+  {10, 3766},
+  {20, 3842},
+  {30, 3885},
+  {40, 3908},
+  {50, 3946},
+  {60, 4007},
+  {70, 4042},
+  {80, 4059},
+  {90, 4078},
+  {100, 4200}
+};
+
+#elif defined(CONFIG_BOARD_ASTERIX) || defined(CONFIG_BOARD_OBELIX) || \
+    defined(CONFIG_BOARD_QEMU_EMERY) || defined(CONFIG_BOARD_QEMU_FLINT) || \
+    defined(CONFIG_BOARD_QEMU_GABBRO)
 #define BATTERY_CRITICAL_VOLTAGE_CHARGING    3550
 #define BATTERY_CRITICAL_VOLTAGE_DISCHARGING 3300
-// Battery Tables for Silk
 static VoltagePoint discharge_curve[] = {
   {0, BATTERY_CRITICAL_VOLTAGE_DISCHARGING},
   {2, 3490},

@@ -4,6 +4,8 @@
 set(sources console.c)
 if(CONFIG_BACKLIGHT_AW2016)
   list(APPEND sources aw2016.c)
+elseif(CONFIG_BACKLIGHT_CO5300_SF32LB)
+  list(APPEND sources co5300.c)
 elseif(CONFIG_BACKLIGHT_AW9364E)
   list(APPEND sources aw9364e.c)
 elseif(CONFIG_BACKLIGHT_PWM)

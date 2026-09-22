@@ -29,6 +29,11 @@ void display_clear(void);
 
 void display_set_enabled(bool enabled);
 
+//! Set the panel brightness in percent. A value of zero is allowed at the
+//! driver layer; board backlight policy decides whether it maps to a minimum
+//! visible brightness for AMOLED panels.
+void display_set_brightness(uint8_t brightness);
+
 void display_set_rotated(bool rotated);
 
 void display_update(NextRowCallback nrcb, UpdateCompleteCallback uccb);

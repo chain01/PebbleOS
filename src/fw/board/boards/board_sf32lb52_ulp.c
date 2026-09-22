@@ -2,6 +2,8 @@
 /* SPDX-License-Identifier: Apache-2.0 */
 
 #include "board/board.h"
+#include "kernel/util/delay.h"
+#include <pbl/drivers/gpio.h>
 #include <pbl/drivers/i2c.h>
 #include <pbl/logging/logging.h>
 #include "bf0_hal_mpi.h"
@@ -138,6 +140,58 @@ static I2CBus s_i2c_bus_1 = {
 I2CBus *const I2C1_BUS = &s_i2c_bus_1;
 IRQ_MAP(I2C1, i2c_irq_handler, I2C1_BUS);
 
+static I2CBusHalState s_i2c_bus_hal_state_2 = {
+  .hdl =
+      {
+        .Instance = I2C2,
+        .Init =
+            {
+              .AddressingMode = I2C_ADDRESSINGMODE_7BIT,
+              .ClockSpeed = 400000,
+              .GeneralCallMode = I2C_GENERALCALL_DISABLE,
+            },
+        .Mode = HAL_I2C_MODE_MASTER,
+        .core = CORE_ID_HCPU,
+      },
+};
+
+static I2CBusHal s_i2c_bus_hal_2 = {
+  .state = &s_i2c_bus_hal_state_2,
+  .scl =
+      {
+        .pad = PAD_PA10,
+        .func = I2C2_SCL,
+        .flags = PIN_PULLUP,
+      },
+  .sda =
+      {
+        .pad = PAD_PA11,
+        .func = I2C2_SDA,
+        .flags = PIN_PULLUP,
+      },
+  .module = RCC_MOD_I2C2,
+  .irqn = I2C2_IRQn,
+  .irq_priority = 5,
+};
+
+static I2CBusState s_i2c_bus_state_2;
+
+static I2CBus s_i2c_bus_2 = {
+  .hal = &s_i2c_bus_hal_2,
+  .state = &s_i2c_bus_state_2,
+  .name = "i2c2",
+};
+
+I2CBus *const I2C2_BUS = &s_i2c_bus_2;
+IRQ_MAP(I2C2, i2c_irq_handler, I2C2_BUS);
+
+static const I2CSlavePort s_i2c_aw32001 = {
+  .bus = &s_i2c_bus_2,
+  .address = 0x49,
+};
+
+I2CSlavePort *const I2C_AW32001 = &s_i2c_aw32001;
+
 static const I2CSlavePort s_i2c_ft6146 = {
   .bus = &s_i2c_bus_1,
   .address = 0x38,
@@ -146,7 +200,7 @@ static const I2CSlavePort s_i2c_ft6146 = {
 I2CSlavePort *const I2C_FT6146 = &s_i2c_ft6146;
 
 const BoardConfig BOARD_CONFIG = {
-  .backlight_on_percent = 50,
+  .backlight_on_percent = 100,
   .ambient_light_dark_threshold = 1,
   .ambient_k_delta_threshold = 1,
   .ambient_light_lux_dark_offset = 0,
@@ -157,9 +211,9 @@ const BoardConfig BOARD_CONFIG = {
 const BoardConfigPower BOARD_CONFIG_POWER = {
   .pmic_int =
       {
-        .peripheral = GPIO_Port_NULL,
-        .gpio_pin = GPIO_Pin_NULL,
-        .pull = GPIO_PuPd_NOPULL,
+        .peripheral = hwp_gpio1,
+        .gpio_pin = 44,
+        .pull = GPIO_PuPd_UP,
       },
   .low_power_threshold = 1,
   .battery_capacity_hours = 48,
@@ -294,8 +348,24 @@ bool board_psram_init(void) {
 void board_early_init(void) {
 }
 
+static void prv_power_rails_init(void) {
+  const uint32_t rails[] = {1, 26, 38, 42};
+  for (uint32_t i = 0; i < sizeof(rails) / sizeof(rails[0]); i++) {
+    const OutputConfig rail = {
+      .gpio = hwp_gpio1,
+      .gpio_pin = rails[i],
+      .active_high = true,
+    };
+    gpio_output_init(&rail, GPIO_OType_PP);
+    gpio_output_set(&rail, true);
+  }
+  HAL_Delay_us(500);
+}
+
 void board_init(void) {
+  prv_power_rails_init();
   i2c_init(I2C1_BUS);
+  i2c_init(I2C2_BUS);
 
   // The ULP board wires its external NOR flash to MPI2. The boot ROM /
   // bootloader set these up before jumping, but the application must not

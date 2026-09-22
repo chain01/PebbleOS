@@ -4,6 +4,8 @@
 set(sources battery_common.c)
 if(CONFIG_BATTERY_QEMU)
   list(APPEND sources ../qemu/qemu_battery.c)
+elseif(CONFIG_BATTERY_AW32001)
+  list(APPEND sources aw32001.c)
 elseif(CONFIG_BATTERY_STUB)
   list(APPEND sources stub.c)
 endif()

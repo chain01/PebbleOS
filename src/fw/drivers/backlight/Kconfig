@@ -20,6 +20,14 @@ config BACKLIGHT_AW2016
     help
       Support for the AW2016 LED controller.
 
+config BACKLIGHT_CO5300_SF32LB
+    bool "CO5300 AMOLED panel brightness"
+    depends on DISPLAY_CO5300_SF32LB
+    help
+      Use the CO5300 panel brightness register as the watch backlight.
+      The light-service off state is kept at a low visible brightness
+      because an AMOLED panel has no separate backlight.
+
 config BACKLIGHT_AW9364E
     bool "AW9364E"
     help

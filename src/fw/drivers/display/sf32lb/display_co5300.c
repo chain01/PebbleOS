@@ -17,7 +17,6 @@
 #include "bf0_hal_epic.h"
 #include "bf0_hal_ezip.h"
 #include "bf0_hal_lcdc.h"
-#include "bf0_hal_i2c.h"
 
 PBL_LOG_MODULE_DEFINE(display_co5300, CONFIG_DRIVER_DISPLAY_LOG_LEVEL);
 
@@ -56,6 +55,7 @@ static LCDC_HandleTypeDef s_hlcdc = {
 static volatile bool s_layer_transfer_done;
 static bool s_initialized;
 static bool s_enabled = true;
+static uint8_t s_brightness = 100U;
 static bool s_rotated;
 static volatile bool s_updating;
 
@@ -76,7 +76,6 @@ static EPIC_HandleTypeDef s_epic = {
 };
 static bool s_gpu_ready;
 
-static void prv_charger_power_up(void);
 extern bool board_psram_init(void);
 
 void HAL_LCDC_SendLayerDataCpltCbk(LCDC_HandleTypeDef *lcdc) {
@@ -109,6 +108,14 @@ static void prv_send_layer_data(uint32_t command) {
 static void prv_write_cmd(uint16_t reg, const uint8_t *parameters, uint32_t count) {
   const uint32_t cmd = (0x02U << 24) | ((uint32_t)reg << 8);
   HAL_LCDC_WriteU32Reg(&s_hlcdc, cmd, (uint8_t *)parameters, count);
+}
+
+static void prv_write_brightness(uint8_t brightness) {
+  if (brightness > 100U) {
+    brightness = 100U;
+  }
+  const uint8_t level = (uint8_t)(((uint16_t)brightness * 255U + 50U) / 100U);
+  prv_write_cmd(CO5300_REG_WBRIGHT, &level, 1);
 }
 
 static void prv_write_region_physical(uint16_t x0, uint16_t y0, uint16_t x1, uint16_t y1) {
@@ -326,8 +333,6 @@ static void prv_pins_init(void) {
   HAL_PIN_Set(PAD_PA26, GPIO_A26, PIN_NOPULL, 1);
   HAL_PIN_Set(PAD_PA38, GPIO_A38, PIN_NOPULL, 1);
   HAL_PIN_Set(PAD_PA42, GPIO_A42, PIN_PULLUP, 1);
-  HAL_PIN_Set(PAD_PA10, I2C2_SCL, PIN_PULLUP, 1);
-  HAL_PIN_Set(PAD_PA11, I2C2_SDA, PIN_PULLUP, 1);
 
   prv_set_power_pin(0, true);
   prv_set_power_pin(1, true);
@@ -335,35 +340,6 @@ static void prv_pins_init(void) {
   prv_set_power_pin(38, true);
   prv_set_power_pin(42, true);
   HAL_Delay_us(500);
-  prv_charger_power_up();
-}
-
-static void prv_charger_power_up(void) {
-  I2C_HandleTypeDef i2c = {0};
-  i2c.Instance = I2C2;
-  i2c.Mode = HAL_I2C_MODE_MASTER;
-  i2c.Init.AddressingMode = I2C_ADDRESSINGMODE_7BIT;
-  i2c.Init.ClockSpeed = 400000;
-  i2c.Init.GeneralCallMode = I2C_GENERALCALL_DISABLE;
-  i2c.Init.OwnAddress1 = 0;
-
-  HAL_RCC_EnableModule(RCC_MOD_I2C2);
-  if (HAL_I2C_Init(&i2c) != HAL_OK) {
-    PBL_LOG_ERR("CO5300 charger I2C init failed");
-    return;
-  }
-  __HAL_I2C_ENABLE(&i2c);
-
-  uint8_t data = 0;
-  if (HAL_I2C_Mem_Read(&i2c, 0x49, 0x01, I2C_MEMADD_SIZE_8BIT, &data, 1, 1000) == HAL_OK) {
-    data &= ~(1U << 3U);
-    (void)HAL_I2C_Mem_Write(&i2c, 0x49, 0x01, I2C_MEMADD_SIZE_8BIT, &data, 1, 1000);
-  }
-  if (HAL_I2C_Mem_Read(&i2c, 0x49, 0x05, I2C_MEMADD_SIZE_8BIT, &data, 1, 1000) == HAL_OK) {
-    data &= ~(3U << 5U);
-    (void)HAL_I2C_Mem_Write(&i2c, 0x49, 0x05, I2C_MEMADD_SIZE_8BIT, &data, 1, 1000);
-  }
-  __HAL_I2C_DISABLE(&i2c);
 }
 
 static void prv_reset_panel(void) {
@@ -440,8 +416,7 @@ static void prv_send_init_sequence(void) {
   prv_write_cmd(CO5300_REG_DISPLAY_ON, NULL, 0);
   HAL_Delay_us(70000);
 
-  parameter[0] = 0xFF;
-  prv_write_cmd(CO5300_REG_WBRIGHT, parameter, 1);
+  prv_write_brightness(s_brightness);
 }
 
 void display_init(void) {
@@ -497,6 +472,13 @@ void display_set_enabled(bool enabled) {
   }
   prv_write_cmd(enabled ? CO5300_REG_DISPLAY_ON : CO5300_REG_DISPLAY_OFF, NULL, 0);
   s_enabled = enabled;
+}
+
+void display_set_brightness(uint8_t brightness) {
+  s_brightness = (brightness > 100U) ? 100U : brightness;
+  if (s_initialized) {
+    prv_write_brightness(s_brightness);
+  }
 }
 
 void display_set_rotated(bool rotated) {
