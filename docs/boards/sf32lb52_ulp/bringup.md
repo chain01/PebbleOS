@@ -670,17 +670,17 @@ slot0/slot1 均通过 PBLBOOT 校验，并加载 slot0。
 KernelBG 持续不喂狗，约 9 秒后触发复位。表现上就是按键/触摸似乎都无
 反应。
 
-为恢复开发板输入能力，ULP 暂不自动显示 charging/fully-charged 模态；
-充电状态仍由 AW32001、battery service 和状态栏维护。实机通过串口控制台
-确认：
+ULP 保留 charging/fully-charged 模态和自动显示流程，但跳过 large battery
+icon 资源，只显示文本和背景色。这样既保留充电提示，也避免 Launcher 卡死。
+实机通过串口控制台确认：
 
 - PA34 Back：EXT 中断、down/up 消抖事件。
 - PA43 Select：EXT 中断、down/up 消抖事件。
 - FT6146：触摸中间产生 down/up，并唤醒屏幕。
 - 屏蔽充电模态后连续运行 20 秒无 KernelBG watchdog 复位。
 
-根因修复应放在后续 modal/resource 适配中；在修好之前不要让 ULP 自动弹
-充电模态。
+后续需要继续定位 large icon 在上述资源/缩放路径中的具体阻塞点，再恢复
+带图标的弹窗。
 
 ## 当前限制与下一步
 
