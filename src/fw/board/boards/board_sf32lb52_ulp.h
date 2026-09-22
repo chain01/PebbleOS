@@ -5,6 +5,7 @@
 
 #include <stdint.h>
 
+#include <pbl/drivers/imu/lsm6ds3tr_c/lsm6ds3tr_c.h>
 #include "pbl/services/imu/units.h"
 
 #define BT_VENDOR_ID   0x0EEA
@@ -14,8 +15,11 @@ extern UARTDevice *const DBG_UART;
 extern QSPIPort *const QSPI;
 extern I2CBus *const I2C1_BUS;
 extern I2CBus *const I2C2_BUS;
+extern I2CBus *const I2C3_BUS;
 extern I2CSlavePort *const I2C_FT6146;
 extern I2CSlavePort *const I2C_AW32001;
+extern I2CSlavePort *const I2C_LSM6DS3TR_C;
+extern const LSM6DS3TR_CConfig *const LSM6DS3TR_C;
 extern QSPIFlash *const QSPI_FLASH;
 extern const BoardConfig BOARD_CONFIG;
 extern const BoardConfigButton BOARD_CONFIG_BUTTON;

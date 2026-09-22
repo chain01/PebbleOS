@@ -27,6 +27,11 @@ config ACCEL_LSM6DSO
     help
       Support for the ST LSM6DSO accelerometer/gyroscope.
 
+config ACCEL_LSM6DS3TR_C
+    bool "ST LSM6DS3TR-C"
+    help
+      Support for the ST LSM6DS3TR-C accelerometer/gyroscope.
+
 config ACCEL_STUB
     bool "Stub"
     help
@@ -114,6 +119,16 @@ config ACCEL_LSM6DSO_SCALE_MG
       Acceleration full-scale range in mg (2000, 4000, 8000 or 16000).
 
 endif # ACCEL_LSM6DSO
+
+if ACCEL_LSM6DS3TR_C
+
+config ACCEL_LSM6DS3TR_C_SCALE_MG
+    int "Full-scale range (mg)"
+    default 4000
+    help
+      Acceleration full-scale range in mg (2000, 4000, 8000 or 16000).
+
+endif # ACCEL_LSM6DS3TR_C
 
 menuconfig MAG
     bool "Magnetometer"

@@ -185,6 +185,51 @@ static I2CBus s_i2c_bus_2 = {
 I2CBus *const I2C2_BUS = &s_i2c_bus_2;
 IRQ_MAP(I2C2, i2c_irq_handler, I2C2_BUS);
 
+static I2CBusHalState s_i2c_bus_hal_state_3 = {
+  .hdl =
+      {
+        .Instance = I2C3,
+        .Init =
+            {
+              .AddressingMode = I2C_ADDRESSINGMODE_7BIT,
+              .ClockSpeed = 400000,
+              .GeneralCallMode = I2C_GENERALCALL_DISABLE,
+            },
+        .Mode = HAL_I2C_MODE_MASTER,
+        .core = CORE_ID_HCPU,
+      },
+};
+
+static I2CBusHal s_i2c_bus_hal_3 = {
+  .state = &s_i2c_bus_hal_state_3,
+  .scl =
+      {
+        .pad = PAD_PA40,
+        .func = I2C3_SCL,
+        .flags = PIN_PULLUP,
+      },
+  .sda =
+      {
+        .pad = PAD_PA39,
+        .func = I2C3_SDA,
+        .flags = PIN_PULLUP,
+      },
+  .module = RCC_MOD_I2C3,
+  .irqn = I2C3_IRQn,
+  .irq_priority = 5,
+};
+
+static I2CBusState s_i2c_bus_state_3;
+
+static I2CBus s_i2c_bus_3 = {
+  .hal = &s_i2c_bus_hal_3,
+  .state = &s_i2c_bus_state_3,
+  .name = "i2c3",
+};
+
+I2CBus *const I2C3_BUS = &s_i2c_bus_3;
+IRQ_MAP(I2C3, i2c_irq_handler, I2C3_BUS);
+
 static const I2CSlavePort s_i2c_aw32001 = {
   .bus = &s_i2c_bus_2,
   .address = 0x49,
@@ -198,6 +243,23 @@ static const I2CSlavePort s_i2c_ft6146 = {
 };
 
 I2CSlavePort *const I2C_FT6146 = &s_i2c_ft6146;
+
+static const I2CSlavePort s_i2c_lsm6ds3tr_c = {
+  .bus = &s_i2c_bus_3,
+  .address = 0x6A,
+};
+
+I2CSlavePort *const I2C_LSM6DS3TR_C = &s_i2c_lsm6ds3tr_c;
+
+static LSM6DS3TR_CState s_lsm6ds3tr_c_state;
+static const LSM6DS3TR_CConfig s_lsm6ds3tr_c_config = {
+  .i2c = &s_i2c_lsm6ds3tr_c,
+  .state = &s_lsm6ds3tr_c_state,
+  .axis_map = {0, 1, 2},
+  .axis_dir = {1, 1, 1},
+};
+
+const LSM6DS3TR_CConfig *const LSM6DS3TR_C = &s_lsm6ds3tr_c_config;
 
 const BoardConfig BOARD_CONFIG = {
   .backlight_on_percent = 100,
@@ -349,7 +411,7 @@ void board_early_init(void) {
 }
 
 static void prv_power_rails_init(void) {
-  const uint32_t rails[] = {1, 26, 38, 42};
+  const uint32_t rails[] = {1, 26, 30, 38, 42};
   for (uint32_t i = 0; i < sizeof(rails) / sizeof(rails[0]); i++) {
     const OutputConfig rail = {
       .gpio = hwp_gpio1,
@@ -366,6 +428,7 @@ void board_init(void) {
   prv_power_rails_init();
   i2c_init(I2C1_BUS);
   i2c_init(I2C2_BUS);
+  i2c_init(I2C3_BUS);
 
   // The ULP board wires its external NOR flash to MPI2. The boot ROM /
   // bootloader set these up before jumping, but the application must not
