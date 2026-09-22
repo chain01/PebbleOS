@@ -622,6 +622,34 @@ ULP 硬件只有 `Back/Select`，没有 `Up/Down`，因此 Select 和触摸中�
 重新安装 normal 固件。实机已重新写入并验证 slot0/slot1 恢复正常启动；
 PRF 中的 FT6146、CO5300 和按键服务也都能正常初始化。
 
+## LSM6DS3TR-C 加速度计
+
+ULP 板载加速度计与黄山派参考设计一致，连接关系为：
+
+- 传感器 I2C：`I2C3_SCL = PA40`，`I2C3_SDA = PA39`
+- 传感器电源控制：`PA30`
+- 传感器 INT1：`PA31`（当前驱动先使用软件 shake 检测，未启用该中断）
+- 7-bit 地址：`0x6A`
+- WHO_AM_I：`0x6A`
+
+新增 `ACCEL_LSM6DS3TR_C` Kconfig 驱动并接入 `accel_manager`。驱动支持 2/4/8/
+16g 量程、12.5/26/52/104/208 Hz ODR、软件 shake 检测和单样本 peek；当前
+`accel_set_num_samples()` 采用 1 样本/回调模式，FIFO 批量传输留作后续功耗
+优化。
+
+首次实机日志：
+
+```text
+I driver_accel_lsm6ds3tr_c: LSM6DS3TR-C ready: id=0x6a
+I driver_accel_lsm6ds3tr_c: LSM6DS3TR-C live: x=-191 y=74 z=-962
+```
+
+其中 live 日志为临时 5 Hz 验证输出；确认驱动后已移除，正式固件只在
+`accel_manager` 请求采样或启用 shake 时启动传感器。
+
+震动马达未接入，也不会在 ULP 配置中调用震动回调；通知振动体验不纳入本次
+加速度适配。
+
 ## P1 电源、USB 检测与 CO5300 待机亮度
 
 2026-09-22 在一台全新区块上完成全量分区恢复和 P1 电源链路验证。

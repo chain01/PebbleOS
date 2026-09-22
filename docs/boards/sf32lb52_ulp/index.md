@@ -18,7 +18,7 @@ Stage 1 intentionally keeps the board-specific surface small:
 - CO5300 390x450 QSPI AMOLED with full-screen scaling and PSRAM framebuffer
 - FT6146 touch controller with scaled logical coordinates
 - AW32001 battery/USB/charger reporting and CO5300 panel brightness control
-- Stub accelerometer, ambient light and vibration drivers
+- LSM6DS3TR-C accelerometer, with stub ambient light and vibration drivers
 - MPI1 8 MiB PSRAM initialization for the panel framebuffer
 - Stored apps disabled for the first firmware link (`CONFIG_BRINGUP_NO_STORED_APPS`).
 
@@ -27,7 +27,6 @@ Hardware bring-up notes and the exact validated flashing/reset procedure are in
 
 The following hardware is deliberately not enabled yet:
 
-- LSM6DS3TR-C accelerometer
 - LTR-303ALS ambient light sensor
 - MMC5603NJ magnetometer
 - Microphone, speaker and real vibration motor
@@ -120,6 +119,7 @@ productization tasks.
 ### P4: watch peripherals
 
 - LSM6DS3TR-C accelerometer
+  (I2C3/PA40/PA39, INT1/PA31, address `0x6A`; sampling and software shake validated)
 - LTR-303ALS ambient light sensor
 - MMC5603NJ magnetometer
 - Analog microphone and speaker path
@@ -210,13 +210,16 @@ Validated on 2026-09-21 with the ULP board connected as `COM16`:
     after installation; ULP reserves a 300 KiB cache headroom instead of 4 MiB.
 14. PRF pairing confirmation accepts `Select` as confirm and `Back` as cancel on
     the two-button ULP hardware, so factory-reset recovery can be re-paired.
+15. The LSM6DS3TR-C reports WHO_AM_I `0x6A` on I2C3 and produces stable
+    accelerometer samples; the repeating timer delivered live XYZ data at 5 Hz
+    during bring-up.
 
 Still to validate after enabling the real hardware backends:
 
 - Full phone feature interoperability: notifications, timeline, weather,
   watchface settings and app message delivery
 - Battery percentage accuracy and charge-current calibration
-- sensors and audio
+- LTR-303ALS ambient light sensor, MMC5603NJ magnetometer and audio
 
 ## Known assumptions and risks
 
