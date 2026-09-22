@@ -8,6 +8,8 @@
 #include "splash/splash_obelix.xbm"
 #elif defined(CONFIG_BOARD_GETAFIX_DVT) || defined(CONFIG_BOARD_GETAFIX_DVT2)
 #include "splash/splash_getafix.xbm"
+#elif defined(CONFIG_BOARD_SF32LB52_ULP)
+#include "splash/splash_obelix.xbm"
 #elif defined(CONFIG_BOARD_QEMU_EMERY)
 #include "splash/splash_obelix.xbm"
 #elif defined(CONFIG_BOARD_QEMU_FLINT)

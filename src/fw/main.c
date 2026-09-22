@@ -245,7 +245,9 @@ static PBL_NOINLINE void prv_main_task_init(void) {
 
   board_early_init();
 
+#if !defined(CONFIG_BOARD_SF32LB52_ULP)
   boot_splash_start();
+#endif
 
   kernel_applib_init();
 

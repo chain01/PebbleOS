@@ -57,36 +57,29 @@ See {doc}`boards/sf32lb52_ulp/bringup` for the display/touch bring-up details.
 
 ## Boot strategy
 
-The board currently uses the SDK-built SiFli ULP second-stage bootloader and a
-single raw XIP image:
+The board now defaults to PBLBOOT, using a repository-owned bootloader patch
+and the validated dual-slot/recovery layout:
 
-- `CONFIG_PBLBOOT=n`
+- `CONFIG_PBLBOOT=y`
 - `CONFIG_FLASH_OFFSET=0x20000`
-- `CONFIG_FIRMWARE_OFFSET=0`
+- `CONFIG_FIRMWARE_OFFSET=4096`
 - `CONFIG_FLASH_SIZE=0x1000000`
 
-The first image is therefore linked at `0x12020000`, matching the SDK ULP
-partition layout. The boot chain used for the validated bring-up is:
+The boot chain used for the validated bring-up is:
 
 - flash table at `0x12000000`
-- SiFli ULP bootloader at `0x12010000`
-- PebbleOS image at `0x12020000`
+- PBLBOOT at `0x12010000`
+- firmware slot 0 at `0x12020000`
+- firmware slot 1 at `0x12320000`
 - system resources at `0x12620000`
+- PRF at `0x12A20000`
 
-This keeps the first bring-up independent of the PebbleOS bootloader, which is
-not part of this repository. The prebuilt SDK bootloader is temporary
-scaffolding; a repository-owned ULP bootloader build should replace it before
-productization.
-
-Once the board boots reliably, the target can be migrated to the dual-slot
-PBLBOOT layout. That migration requires programming the Pebble bootloader and
-its flash table before changing `CONFIG_PBLBOOT` back to `y`.
-
-A ULP PRF image can also be built for the current raw-XIP layout, wrapped with
-the legacy 12-byte `FirmwareDescription`, and installed at `0x12A20000`.
-The normal firmware then reports it through the `version` console command and
-the system-version protocol. This validates the recovery image and storage, but
-the current SDK bootloader still cannot select it for recovery boot or rollout.
+The ULP PBLBOOT board patch is stored in
+`boards/sf32lb52_ulp/pblboot/sf32lb52-ulp.patch`; see that directory for the
+tested upstream revision and build instructions. Hardware validation confirmed
+both normal slot-0 boot and automatic fallback to PRF when slot 0 is
+invalidated. Flash-table provisioning and OTA/rollback are still separate
+productization tasks.
 
 ## Requirements breakdown
 
@@ -147,8 +140,10 @@ Flash the resulting image through the ULP USB-to-UART adapter:
 pbl flash --tty COMx
 ```
 
-The target declares the `sftool` runner. The ULP factory bootloader and
-partition table are prerequisites for the current single-slot bring-up.
+The target declares the `sftool` runner. A ROM flash table is still required
+as the first-stage handoff. The validated second-stage bootloader is PBLBOOT;
+build it using the patch in `boards/sf32lb52_ulp/pblboot/` and flash it at
+`0x12010000` before flashing the PBLBOOT-formatted firmware.
 
 ### Validated host build
 
@@ -193,6 +188,9 @@ Validated on 2026-09-21 with the ULP board connected as `COM16`:
 5. The kernel/main task reaches the final startup log
    `Ready for communication.`
 6. A 20-second run produced no second `SFBL`, no core dump, and no reset loop.
+7. The PBLBOOT build selected and booted valid slot 0.
+8. Erasing the slot 0 header caused PBLBOOT to load PRF automatically; slot 0
+   was restored after the test.
 
 Still to validate after enabling the real hardware backends:
 
@@ -204,8 +202,10 @@ Still to validate after enabling the real hardware backends:
 
 - The validated board reports `XT25F128F` with JEDEC ID `0x18400b`. Compatible
   16 MiB parts still need to be checked individually.
-- The validated boot chain maps the main image at `0x12020000`; the temporary
-  flash table and SDK bootloader must be kept in sync with this layout.
+- The validated boot chain maps slot 0 at `0x12020000`, slot 1 at
+  `0x12320000`, and PRF at `0x12A20000`. The ROM flash table remains an
+  SDK-generated first-stage dependency and must be made repository-owned before
+  production.
 - The ULP board has multiple power/charger revisions. The source tree contains
   AW32001 references while public board documentation also mentions SY6103.
   Confirm the physical board revision before implementing battery management.
@@ -216,9 +216,10 @@ Still to validate after enabling the real hardware backends:
   reuses the Obelix map so that the firmware/resource pipeline can link; it must
   be replaced with a ULP-specific map before shipping.
 - The first bring-up, BLE advertising, GATT, Android pairing/bonding, automatic
-  reconnect and an App Store watchface install are hardware-validated. The
-  current firmware is still not a shippable product image: watchdog, PRF/firmware
-  update, phone feature parity and all real peripherals remain to be validated.
+  reconnect and an App Store watchface install are hardware-validated. PBLBOOT
+  slot-0 boot and PRF fallback are also hardware-validated. The current firmware
+  is still not a shippable product image: OTA/rollback, phone feature parity and
+  all real peripherals remain to be validated.
   See {doc}`boards/sf32lb52_ulp/bringup` for the remaining work.
 - A persisted airplane-mode flag in `gap_bonding_db` silently prevents the BT
   driver from starting. The bring-up notes document how to distinguish this
@@ -227,11 +228,10 @@ Still to validate after enabling the real hardware backends:
   completed without a reset, but two transient `KernelBG` stalls recovered
   during weather/BLE synchronization. These should be eliminated before a
   release build is considered stable.
-- A valid PRF image can now be built and installed in `SAFE_FIRMWARE`, and the
-  normal firmware reports `recov:1` through the `version` command. Recovery
-  boot, slot switching, OTA and rollback still require the PBLBOOT migration.
-  The mobile-app `Ignore Missing PRF` workaround may no longer be necessary
-  now that recovery metadata is present, but this still needs an App retest.
+- PBLBOOT slot-0 boot and automatic PRF fallback are hardware-validated. The
+  mobile-app `Ignore Missing PRF` workaround should no longer be necessary,
+  but it still needs an App retest. OTA, slot switching and rollback remain to
+  be validated.
 - `LOG_DOMAIN_BT_STACK` must be nonzero for HCI/NimBLE transport diagnostics to
   be emitted; otherwise transport errors are silently dropped by the logger.
 

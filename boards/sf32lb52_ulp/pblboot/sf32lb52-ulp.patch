@@ -1,0 +1,502 @@
+From e4a070cb4dac35785ba5edbff5984fa11510eb89 Mon Sep 17 00:00:00 2001
+From: chain01 <15863338830@163.com>
+Date: Tue, 22 Sep 2026 11:40:31 +0800
+Subject: [PATCH] boards: add SiFli SF32LB52 ULP support
+
+Add a PBLBOOT board for the SiFli SF32LB52-LCHSPI-ULP with 16 MiB flash, Back+Select recovery combo, and optional watchdog handoff. The ULP image uses the PebbleOS 64 KiB boot, dual 3 MiB firmware, and 512 KiB PRF partition layout.
+---
+ .../sf32lb52_ulp/Kconfig.sf32lb52_ulp         |   5 +
+ boards/coredevices/sf32lb52_ulp/board.cmake   |   6 +
+ boards/coredevices/sf32lb52_ulp/board.yml     |   9 ++
+ .../sf32lb52_ulp/sf32lb52_ulp-pinctrl.dtsi    |  20 +++
+ .../coredevices/sf32lb52_ulp/sf32lb52_ulp.dts | 129 ++++++++++++++++++
+ .../sf32lb52_ulp/sf32lb52_ulp.yaml            |  16 +++
+ .../sf32lb52_ulp/sf32lb52_ulp_defconfig       |  14 ++
+ boot/Kconfig                                  |  16 +++
+ boot/boards/sf32lb52_ulp.conf                 |   6 +
+ boot/boards/sf32lb52_ulp.overlay              |  60 ++++++++
+ boot/src/buttons.c                            |  27 +++-
+ boot/src/watchdog.c                           |  16 +++
+ 12 files changed, 319 insertions(+), 5 deletions(-)
+ create mode 100644 boards/coredevices/sf32lb52_ulp/Kconfig.sf32lb52_ulp
+ create mode 100644 boards/coredevices/sf32lb52_ulp/board.cmake
+ create mode 100644 boards/coredevices/sf32lb52_ulp/board.yml
+ create mode 100644 boards/coredevices/sf32lb52_ulp/sf32lb52_ulp-pinctrl.dtsi
+ create mode 100644 boards/coredevices/sf32lb52_ulp/sf32lb52_ulp.dts
+ create mode 100644 boards/coredevices/sf32lb52_ulp/sf32lb52_ulp.yaml
+ create mode 100644 boards/coredevices/sf32lb52_ulp/sf32lb52_ulp_defconfig
+ create mode 100644 boot/boards/sf32lb52_ulp.conf
+ create mode 100644 boot/boards/sf32lb52_ulp.overlay
+
+diff --git a/boards/coredevices/sf32lb52_ulp/Kconfig.sf32lb52_ulp b/boards/coredevices/sf32lb52_ulp/Kconfig.sf32lb52_ulp
+new file mode 100644
+index 0000000..cca950b
+--- /dev/null
++++ b/boards/coredevices/sf32lb52_ulp/Kconfig.sf32lb52_ulp
+@@ -0,0 +1,5 @@
++# Copyright (c) 2026 Core Devices LLC
++# SPDX-License-Identifier: Apache-2.0
++
++config BOARD_SF32LB52_ULP
++	select SOC_SF32LB525UC6
+\ No newline at end of file
+diff --git a/boards/coredevices/sf32lb52_ulp/board.cmake b/boards/coredevices/sf32lb52_ulp/board.cmake
+new file mode 100644
+index 0000000..2a25598
+--- /dev/null
++++ b/boards/coredevices/sf32lb52_ulp/board.cmake
+@@ -0,0 +1,6 @@
++# Copyright (c) 2026 Core Devices LLC
++# SPDX-License-Identifier: Apache-2.0
++
++board_runner_args(sftool "--chip=SF32LB52")
++
++include(${ZEPHYR_BASE}/boards/common/sftool.board.cmake)
+diff --git a/boards/coredevices/sf32lb52_ulp/board.yml b/boards/coredevices/sf32lb52_ulp/board.yml
+new file mode 100644
+index 0000000..a8b5584
+--- /dev/null
++++ b/boards/coredevices/sf32lb52_ulp/board.yml
+@@ -0,0 +1,9 @@
++# Copyright (c) 2026 Core Devices LLC
++# SPDX-License-Identifier: Apache-2.0
++
++board:
++  name: sf32lb52_ulp
++  full_name: SiFli SF32LB52-LCHSPI-ULP
++  vendor: coredevices
++  socs:
++    - name: sf32lb525uc6
+\ No newline at end of file
+diff --git a/boards/coredevices/sf32lb52_ulp/sf32lb52_ulp-pinctrl.dtsi b/boards/coredevices/sf32lb52_ulp/sf32lb52_ulp-pinctrl.dtsi
+new file mode 100644
+index 0000000..b5adb0a
+--- /dev/null
++++ b/boards/coredevices/sf32lb52_ulp/sf32lb52_ulp-pinctrl.dtsi
+@@ -0,0 +1,20 @@
++/*
++ * Copyright (c) 2026 Core Devices LLC
++ * SPDX-License-Identifier: Apache-2.0
++ */
++
++#include <zephyr/dt-bindings/pinctrl/sf32lb52x-pinctrl.h>
++
++&pinctrl {
++	usart1_default: usart1_default {
++		group1 {
++			pinmux = <PA19_USART1_TXD>;
++		};
++
++		group2 {
++			pinmux = <PA18_USART1_RXD>;
++			input-enable;
++			bias-pull-up;
++		};
++	};
++};
+\ No newline at end of file
+diff --git a/boards/coredevices/sf32lb52_ulp/sf32lb52_ulp.dts b/boards/coredevices/sf32lb52_ulp/sf32lb52_ulp.dts
+new file mode 100644
+index 0000000..8cba369
+--- /dev/null
++++ b/boards/coredevices/sf32lb52_ulp/sf32lb52_ulp.dts
+@@ -0,0 +1,129 @@
++/*
++ * Copyright (c) 2026 Core Devices LLC
++ * SPDX-License-Identifier: Apache-2.0
++ */
++
++/dts-v1/;
++
++#include <sifli/sf32lb52x.dtsi>
++#include <sifli/sf32lb52x-ram012.dtsi>
++#include <zephyr/dt-bindings/dma/sf32lb52x-dma.h>
++#include <zephyr/dt-bindings/gpio/gpio.h>
++#include <zephyr/dt-bindings/input/input-event-codes.h>
++
++#include "sf32lb52_ulp-pinctrl.dtsi"
++
++/ {
++	model = "SiFli SF32LB52-LCHSPI-ULP";
++	compatible = "coredevices,sf32lb52-ulp";
++
++	chosen {
++		zephyr,flash = &xt25f128f;
++		zephyr,flash-controller = &mpi2;
++		zephyr,code-partition = &code;
++		zephyr,console = &usart1;
++		zephyr,shell-uart = &usart1;
++	};
++
++	buttons {
++		compatible = "gpio-keys";
++
++		key1: button-back {
++			label = "BACK";
++			gpios = <&gpioa_32_44 2 GPIO_ACTIVE_HIGH>;
++			zephyr,code = <INPUT_KEY_BACK>;
++		};
++
++		key2: button-select {
++			label = "SELECT";
++			gpios = <&gpioa_32_44 11 GPIO_ACTIVE_HIGH>;
++			zephyr,code = <INPUT_KEY_ENTER>;
++		};
++	};
++
++	aliases {
++		sw0 = &key1;
++		sw1 = &key2;
++		watchdog0 = &wdt;
++	};
++};
++
++&cpu0 {
++	clock-frequency = <DT_FREQ_M(240)>;
++};
++
++&hxt48 {
++	status = "okay";
++};
++
++&rcc_clk {
++	status = "okay";
++
++	sifli,hdiv = <1>;
++	sifli,pdiv1 = <1>;
++	sifli,pdiv2 = <6>;
++
++	dll1 {
++		status = "okay";
++		clock-frequency = <DT_FREQ_M(240)>;
++	};
++
++};
++
++&gpioa_00_31 {
++	status = "okay";
++};
++
++&gpioa_32_44 {
++	status = "okay";
++};
++
++&dmac {
++	status = "okay";
++};
++
++&mpi2 {
++	compatible = "sifli,sf32lb-mpi-qspi-nor";
++	dmas = <&dmac 0 SF32LB52X_DMA_REQ_MPI2 SF32LB_DMA_PL_MEDIUM>;
++	sifli,psclr = <0>;
++	sifli,lines = <4>;
++	status = "okay";
++
++	xt25f128f: flash@0 {
++		compatible = "jedec,qspi-nor";
++		reg = <0x0>;
++		size = <DT_SIZE_M(128)>;
++		quad-enable-requirements = "S2B1v1";
++
++		partitions {
++			compatible = "fixed-partitions";
++			#address-cells = <1>;
++			#size-cells = <1>;
++
++			ptable: partition@0 {
++				label = "ptable";
++				reg = <0x0 DT_SIZE_K(64)>;
++			};
++
++			code: partition@10000 {
++				label = "code";
++				reg = <0x10000 DT_SIZE_K(16320)>;
++			};
++		};
++	};
++};
++
++&pinctrl {
++	status = "okay";
++};
++
++&usart1 {
++	status = "okay";
++	current-speed = <1000000>;
++	pinctrl-0 = <&usart1_default>;
++	pinctrl-names = "default";
++};
++
++&wdt {
++	status = "okay";
++};
+\ No newline at end of file
+diff --git a/boards/coredevices/sf32lb52_ulp/sf32lb52_ulp.yaml b/boards/coredevices/sf32lb52_ulp/sf32lb52_ulp.yaml
+new file mode 100644
+index 0000000..8d7a4fd
+--- /dev/null
++++ b/boards/coredevices/sf32lb52_ulp/sf32lb52_ulp.yaml
+@@ -0,0 +1,16 @@
++# Copyright (c) 2026 Core Devices LLC
++# SPDX-License-Identifier: Apache-2.0
++
++identifier: sf32lb52_ulp
++name: SiFli-SF32LB52-LCHSPI-ULP
++vendor: coredevices
++type: mcu
++arch: arm
++ram: 512
++flash: 16320
++toolchain:
++  - zephyr
++supported:
++  - uart
++  - gpio
++  - watchdog
+\ No newline at end of file
+diff --git a/boards/coredevices/sf32lb52_ulp/sf32lb52_ulp_defconfig b/boards/coredevices/sf32lb52_ulp/sf32lb52_ulp_defconfig
+new file mode 100644
+index 0000000..eadeb3d
+--- /dev/null
++++ b/boards/coredevices/sf32lb52_ulp/sf32lb52_ulp_defconfig
+@@ -0,0 +1,14 @@
++# Copyright (c) 2026 Core Devices LLC
++# SPDX-License-Identifier: Apache-2.0
++
++CONFIG_ARM_MPU=y
++CONFIG_HW_STACK_PROTECTION=y
++
++CONFIG_SERIAL=y
++CONFIG_GPIO=y
++
++CONFIG_CONSOLE=y
++CONFIG_UART_CONSOLE=y
++
++CONFIG_SF32LB52X_BOOTROM_FLASH_ON_DELAY_MS=100
++CONFIG_SF32LB52X_BOOTROM_FLASH_OFF_DELAY_MS=100
+\ No newline at end of file
+diff --git a/boot/Kconfig b/boot/Kconfig
+index d8bac23..072886a 100644
+--- a/boot/Kconfig
++++ b/boot/Kconfig
+@@ -22,9 +22,25 @@ config PB_PRF_BUTTON_COMBO_TIME_MS
+ 	  Time in milliseconds that the PRF button combo must be held to trigger
+ 	  a PRF load.
+ 
++config PB_PRF_BUTTON_COMBO_TWO_BUTTONS
++	bool "Use Back+Select as the PRF button combo"
++	default n
++	help
++	  Use a two-button Back+Select combo instead of the default
++	  Back+Up+Center+Down combination.
++
++config PB_WATCHDOG
++	bool "Enable bootloader watchdog"
++	default y
++	help
++	  Initialize and feed the watchdog while the bootloader is running.
++	  Disable on targets where firmware must take ownership without a
++	  bootloader-configured watchdog still running.
++
+ config PB_WATCHDOG_TIMEOUT_MS
+ 	int "Watchdog timeout (ms)"
+ 	default 10000
++	depends on PB_WATCHDOG
+ 	help
+ 	  Timeout in milliseconds for the watchdog timer.
+ 
+diff --git a/boot/boards/sf32lb52_ulp.conf b/boot/boards/sf32lb52_ulp.conf
+new file mode 100644
+index 0000000..d157bdb
+--- /dev/null
++++ b/boot/boards/sf32lb52_ulp.conf
+@@ -0,0 +1,6 @@
++# Copyright (c) 2026 Core Devices LLC
++# SPDX-License-Identifier: Apache-2.0
++
++CONFIG_PB_CHARGER=n
++CONFIG_PB_WATCHDOG=n
++CONFIG_PB_PRF_BUTTON_COMBO_TWO_BUTTONS=y
+\ No newline at end of file
+diff --git a/boot/boards/sf32lb52_ulp.overlay b/boot/boards/sf32lb52_ulp.overlay
+new file mode 100644
+index 0000000..e6e2569
+--- /dev/null
++++ b/boot/boards/sf32lb52_ulp.overlay
+@@ -0,0 +1,60 @@
++/*
++ * Copyright (c) 2026 Core Devices LLC
++ * SPDX-License-Identifier: Apache-2.0
++ */
++
++/ {
++	chosen {
++		/* we are the bootloader */
++		zephyr,code-partition = &boot;
++
++		/* slots */
++		pb,slot0 = &slot0;
++		pb,slot1 = &slot1;
++		pb,prf = &prf;
++
++		/* ULP has Back and Select only. Select acts as the center button. */
++		pb,btn-back = &key1;
++		pb,btn-center = &key2;
++
++		/* watchdog */
++		pb,wdt = &wdt;
++	};
++};
++
++&mpi2 {
++	flash@0 {
++		partitions {
++			/* define custom partition scheme */
++			/delete-node/ code@10000;
++
++			boot: partition@10000 {
++				label = "boot";
++				reg = <0x10000 DT_SIZE_K(64)>;
++			};
++
++			slot0: partition@20000 {
++				label = "slot0";
++				reg = <0x20000 DT_SIZE_K(3072)>;
++			};
++
++			slot1: partition@320000 {
++				label = "slot1";
++				reg = <0x320000 DT_SIZE_K(3072)>;
++			};
++
++			prf: partition@a20000 {
++				label = "prf";
++				reg = <0xa20000 DT_SIZE_K(512)>;
++			};
++		};
++	};
++};
++
++&wdt {
++	sifli,reset-all;
++};
++
++&usart1 {
++	current-speed = <1000000>;
++};
+\ No newline at end of file
+diff --git a/boot/src/buttons.c b/boot/src/buttons.c
+index a32acd7..e4f713d 100644
+--- a/boot/src/buttons.c
++++ b/boot/src/buttons.c
+@@ -15,22 +15,32 @@
+ LOG_MODULE_DECLARE(pblboot, CONFIG_PBLBOOT_LOG_LEVEL);
+ 
+ static const struct gpio_dt_spec btn_back = GPIO_DT_SPEC_GET(DT_CHOSEN(pb_btn_back), gpios);
+-static const struct gpio_dt_spec btn_up = GPIO_DT_SPEC_GET(DT_CHOSEN(pb_btn_up), gpios);
+ static const struct gpio_dt_spec btn_center = GPIO_DT_SPEC_GET(DT_CHOSEN(pb_btn_center), gpios);
++
++#ifndef CONFIG_PB_PRF_BUTTON_COMBO_TWO_BUTTONS
++static const struct gpio_dt_spec btn_up = GPIO_DT_SPEC_GET(DT_CHOSEN(pb_btn_up), gpios);
+ static const struct gpio_dt_spec btn_down = GPIO_DT_SPEC_GET(DT_CHOSEN(pb_btn_down), gpios);
++#endif
+ 
+ static inline bool buttons_prf_pressed(void)
+ {
++#ifdef CONFIG_PB_PRF_BUTTON_COMBO_TWO_BUTTONS
++	return (gpio_pin_get_dt(&btn_back) == 1) && (gpio_pin_get_dt(&btn_center) == 1);
++#else
+ 	return (gpio_pin_get_dt(&btn_back) == 1) && (gpio_pin_get_dt(&btn_up) == 1) &&
+ 	       (gpio_pin_get_dt(&btn_center) == 1) && (gpio_pin_get_dt(&btn_down) == 0);
++#endif
+ }
+ 
+ int pb_buttons_init(void)
+ {
+ 	int ret;
+ 
+-	if (!gpio_is_ready_dt(&btn_back) || !gpio_is_ready_dt(&btn_up) ||
+-	    !gpio_is_ready_dt(&btn_center) || !gpio_is_ready_dt(&btn_down)) {
++	if (!gpio_is_ready_dt(&btn_back) || !gpio_is_ready_dt(&btn_center)
++#ifndef CONFIG_PB_PRF_BUTTON_COMBO_TWO_BUTTONS
++	    || !gpio_is_ready_dt(&btn_up) || !gpio_is_ready_dt(&btn_down)
++#endif
++	   ) {
+ 		LOG_ERR("Button GPIO device/s not ready");
+ 		return -ENODEV;
+ 	}
+@@ -41,11 +51,13 @@ int pb_buttons_init(void)
+ 		return ret;
+ 	}
+ 
++#ifndef CONFIG_PB_PRF_BUTTON_COMBO_TWO_BUTTONS
+ 	ret = gpio_pin_configure_dt(&btn_up, GPIO_INPUT);
+ 	if (ret < 0) {
+ 		LOG_ERR("Failed to configure up button (err %d)", ret);
+ 		return ret;
+ 	}
++#endif
+ 
+ 	ret = gpio_pin_configure_dt(&btn_center, GPIO_INPUT);
+ 	if (ret < 0) {
+@@ -53,11 +65,13 @@ int pb_buttons_init(void)
+ 		return ret;
+ 	}
+ 
++#ifndef CONFIG_PB_PRF_BUTTON_COMBO_TWO_BUTTONS
+ 	ret = gpio_pin_configure_dt(&btn_down, GPIO_INPUT);
+ 	if (ret < 0) {
+ 		LOG_ERR("Failed to configure down button (err %d)", ret);
+ 		return ret;
+ 	}
++#endif
+ 
+ 	return 0;
+ }
+@@ -84,6 +98,9 @@ bool pb_buttons_prf_requested(void)
+ 
+ bool pb_buttons_any_pressed(void)
+ {
+-	return (gpio_pin_get_dt(&btn_back) == 1) || (gpio_pin_get_dt(&btn_up) == 1) ||
+-	       (gpio_pin_get_dt(&btn_center) == 1) || (gpio_pin_get_dt(&btn_down) == 1);
++	return (gpio_pin_get_dt(&btn_back) == 1) || (gpio_pin_get_dt(&btn_center) == 1)
++#ifndef CONFIG_PB_PRF_BUTTON_COMBO_TWO_BUTTONS
++	       || (gpio_pin_get_dt(&btn_up) == 1) || (gpio_pin_get_dt(&btn_down) == 1)
++#endif
++	       ;
+ }
+diff --git a/boot/src/watchdog.c b/boot/src/watchdog.c
+index a780f02..aa79293 100644
+--- a/boot/src/watchdog.c
++++ b/boot/src/watchdog.c
+@@ -14,6 +14,20 @@
+ 
+ LOG_MODULE_DECLARE(pblboot, CONFIG_PBLBOOT_LOG_LEVEL);
+ 
++#ifndef CONFIG_PB_WATCHDOG
++
++int pb_watchdog_init(void)
++{
++	return 0;
++}
++
++int pb_watchdog_feed(void)
++{
++	return 0;
++}
++
++#else
++
+ static const struct device *wdt = DEVICE_DT_GET(DT_CHOSEN(pb_wdt));
+ 
+ int pb_watchdog_init(void)
+@@ -64,3 +78,5 @@ int pb_watchdog_feed(void)
+ 
+ 	return 0;
+ }
++
++#endif
+\ No newline at end of file
+-- 
+2.51.0.windows.1
+

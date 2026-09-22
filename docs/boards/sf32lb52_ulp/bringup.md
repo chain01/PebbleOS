@@ -268,9 +268,11 @@ val recoveryMode = when {
 }
 ```
 
-当前单槽 raw-XIP bring-up 没有 PRF/recovery 镜像，因此
+在 PBLBOOT 迁移前，单槽 raw-XIP bring-up 没有 PRF/recovery 镜像，因此
 `recoveryFwVersion == null`，App 会把连接降级为 PRF 模式，只初始化固件更新、
 日志、core dump 等恢复服务；表盘安装、语言包、音乐和通知服务都不会注册。
+现在 ULP 默认构建已切换到 PBLBOOT，并在 `SAFE_FIRMWARE` 安装了有效 PRF，
+因此该 workaround 只保留给 `CONFIG_PBLBOOT=n` 的旧 raw-XIP 构建。
 
 开发阶段需要在 App 中打开：
 
@@ -288,8 +290,9 @@ Pebble Time 2 - Black/Gray
 Battery 77%
 ```
 
-这一步是 Pebble App 官方给开发板提供的绕过选项。长期方案仍是补齐仓库可构建的
-PRF/recovery 镜像和 PBLBOOT 双槽流程。
+这一步是 Pebble App 官方给开发板提供的绕过选项。ULP 现已完成可构建的
+PRF/recovery 镜像、PBLBOOT 双槽启动和自动 PRF fallback；仍待验证的是
+无线 OTA、slot 切换和回滚。
 
 序列号原先回退为 `XXXXXXXXXXXX`，App 会将其视为未烧录并隐藏。ULP 没有正式
 OTP serial；现在未写 OTP 时使用 MCU UID 生成稳定的 12 位开发序列号，不写入
@@ -479,6 +482,65 @@ X/Y 均不做镜像。四方向、四角和中心触摸已与显示方向核对�
 - 使用 PSRAM 整帧缓冲后横向条带乱码消失。
 - 使用 EPIC GPU 分段缩放后，16 行黑线消失，滚动和页面动画流畅度正常。
 
+## PBLBOOT 迁移与实机验证
+
+ULP 板已从 SDK 预构建二级 bootloader 迁移到 PebbleOS PBLBOOT。PBLBOOT
+板级补丁位于：
+
+```text
+boards/sf32lb52_ulp/pblboot/sf32lb52-ulp.patch
+```
+
+测试使用的 PBLBOOT 版本为 `0.9.20`，上游基线提交为
+`aa776870527a56422556601d7494582425b96e53`。ULP 分区如下：
+
+| 区域 | 地址 | 大小 |
+|---|---:|---:|
+| PBLBOOT | `0x12010000` | 64 KiB |
+| firmware slot 0 | `0x12020000` | 3 MiB |
+| firmware slot 1 | `0x12320000` | 3 MiB |
+| system resources | `0x12620000` | 2 MiB |
+| PRF | `0x12A20000` | 512 KiB |
+
+PebbleOS 以 `CONFIG_PBLBOOT=y` 构建时会自动在镜像前添加 28 字节
+PBLBOOT header。实机顺序是：
+
+1. 将 ULP PBLBOOT 写入 `0x12010000`。
+2. 将带 header 的普通固件写入 slot 0。
+3. 将带 header 的 PRF 写入 `0x12A20000`。
+4. 复位后 PBLBOOT 校验两个 slot，选择优先级较高的有效镜像。
+
+本次验证的关键日志：
+
+```text
+I: PebbleOS bootloader 0.9.20
+I: slot0 firmware valid (0x12021000, ...)
+I: Loading slot0 firmware @ 0x12021000
+...
+D - ...> Ready for communication.
+```
+
+随后擦除 slot 0 header，重新复位。PBLBOOT 按预期进入 recovery：
+
+```text
+I: PebbleOS bootloader 0.9.20
+E: No valid firmware image
+I: Loading PRF at address 0x12a21000
+...
+D - ...> Ready for communication.
+```
+
+测试后已重新写入 slot 0。PBLBOOT 迁移还修复了两个 ULP 特有问题：
+
+- PBLBOOT 不启用 DLL2，而 ULP 的板载 PSRAM 需要 DLL2。PebbleOS 现在在
+  `board_psram_init()` 中显式启用 DLL2，再切换到 `RCC_CLK_FLASH_DLL2`。
+- PBLBOOT 路径会在普通驱动初始化前启动 boot splash。ULP 的屏和 PSRAM
+  供电由正常驱动初始化时序管理，因此 ULP 跳过早期 boot splash，显示仍
+  在 `init_drivers()` 后初始化。
+
+尚未验证：无线 OTA、双 slot 切换、安装失败回滚，以及 PBLBOOT 固件表的
+完全仓库化构建。
+
 ## PRF recovery 镜像构建与识别
 
 ULP 目标现在可以独立构建 PRF recovery 镜像，并在普通固件中识别。构建命令：
@@ -503,8 +565,9 @@ CONFIG_FW_FLASH_SIZE=0x80000
 FLASH: 491395 B / 512 KB (93.73%)
 ```
 
-由于当前仍是 `CONFIG_PBLBOOT=n` 的 legacy raw-XIP 布局，刷入 PRF 前必须
-添加 12 字节 `FirmwareDescription`：
+如果使用 raw-XIP fallback 构建（`CONFIG_PBLBOOT=n`），刷入 PRF 前必须
+添加 12 字节 `FirmwareDescription`。使用当前默认的 PBLBOOT 构建时，构建
+流程会自动添加 PBLBOOT header，不需要这一步：
 
 ```shell
 python tools/insert_firmware_descr.py `
@@ -547,6 +610,6 @@ slot 切换和回滚流程；这些完成前，PRF 只能算“已安装并可�
 - HRM 不在本 ULP 目标范围内，不再列为后续适配项。
 - 全屏缩放已通过 EPIC GPU 分段加速完成，旧的 CPU 缩放描述已废弃。
 - normal resource map 仍临时复用 Obelix map；PRF 已有 ULP 专用资源映射。
-- SDK 预构建 bootloader 只是 bring-up 依赖，需要纳入源码构建。
+- PBLBOOT 补丁已纳入仓库；SDK 生成的 ROM flash table 和 OTA/回滚仍是产品化依赖。
 - `PBULP_ENTER` / `PBULP_INIT_OK` 是非 release 构建的早期 marker，正式版本
   会由 `CONFIG_RELEASE` 自动去掉。

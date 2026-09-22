@@ -258,6 +258,7 @@ bool board_psram_init(void) {
   const uint32_t psram_pid = pid & 7U;
 
   prv_psram_pins(psram_pid);
+  (void)HAL_RCC_HCPU_EnableDLL2(240000000);
   HAL_RCC_HCPU_ClockSelect(RCC_CLK_MOD_FLASH1, RCC_CLK_FLASH_DLL2);
   (void)HAL_PMU_ConfigPeriLdo(PMU_PERI_LDO_1V8, true, true);
 
