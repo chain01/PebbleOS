@@ -628,22 +628,28 @@ CO5300 数据手册中的 `IDMON (0x39)` 不是 AOD，只是切换到 16.7M/4096
 
 - 新增 `CONFIG_BACKLIGHT_CO5300_SF32LB`。
 - 正常亮度写入 `WRDISBV (0x51)`，0-100% 线性映射到 0x00-0xFF。
-- light-service 进入 OFF（约 5 秒无交互）时传入 0%；驱动层保持 3%
+- light-service 进入 OFF（约 5 秒无交互）时传入 0%；驱动层保持 6%
   亮度，保证 AMOLED 不黑屏。
 - 触摸/按键唤醒后恢复用户亮度。
 - ULP 板 `backlight_on_percent` 从 50% 改为 100%。
 
-修改后固件已完成编译和实机启动验证；待机低亮与触摸/按键唤醒恢复仍需
-做最终视觉确认。
+修改后固件已完成编译、全量烧录和实机启动验证。串口控制台执行
+`backlight level 0` 返回 `OK`，确认 light-service OFF 路径稳定进入 6%
+待机亮度；触摸/按键唤醒恢复仍由日常交互覆盖。
 
 ### AW32001、电池 ADC 与 USB
 
 - I2C2：PA10/SCL、PA11/SDA，400 kHz，AW32001 地址 `0x49`。
 - 充电器已接入，禁用 watchdog，目标电压 `4215 mV`。
-- VBUS_DET/CHG_INT：PA44；该批次实测为高有效，USB 插入时
-  `VBUS_DET=1`。
+- 充电中断：PA44/`CHG_INT`。AW32001 INT 是低有效、约 256 us 的脉冲输出，
+  不能把 PA44 电平当作持续 VBUS 状态；EXTI 配置为下降沿。
+- USB 连接：读取 `SYS_STATUS (0x08)` 的 `PG_STAT`（bit1）。`PG_STAT=1`
+  表示 VBUS 电源有效，拔出后回到 0。
 - AW32001 `SYS_STATUS (0x08)` bit4:3 映射为
-  no charging/pre-charge/charging/full。
+  no charging/pre-charge/charging/charge done。只有 `PG_STAT=1` 且阶段为
+  pre-charge 或 charging 时才算正在充电，charge done 不再被当成充电中。
+- `FAULT (0x09)` 在每次状态刷新时读取并清除锁存故障；驱动只在 `PG_STAT`
+  或充电阶段变化时投递一次电池连接事件，避免重复弹窗和状态机风暴。
 - 电池电压使用 SF32LB52x 专用 GPADC channel 7，并乘 HAL 的
   `vbat_factor`。SDK Kconfig 默认 channel 1 在该芯片上读数为接近 0 V，
   不能用于此板。
@@ -654,33 +660,37 @@ CO5300 数据手册中的 `IDMON (0x39)` 不是 AOD，只是切换到 16.7M/4096
 验证日志：
 
 ```text
-[00:00:00.605] <inf> driver_battery_aw32001: AW32001 ready: 3798 mV,
-               status=0x52, vbus_det=1, plugged=1
+[00:00:00.007] <inf> driver_battery_aw32001: AW32001 status: 0x52 pg=1 chg=2 fault=0x00
+[00:00:00.375] <inf> driver_battery_aw32001: AW32001 ready: 4204 mV,
+               plugged=1, chg=2, fault=0x00
 [00:00:00.707] <inf> driver_touch_ft6146: FT6146 ID: 0x6456
 [00:00:00.398] <inf> display_co5300: CO5300 ready: id=0x331100
 ```
 
-`status=0x52` 的 bit4:3 为 `2`，表示正在 CC 充电。全量分区后的启动日志中
-slot0/slot1 均通过 PBLBOOT 校验，并加载 slot0。
+`status=0x52` 的 `PG_STAT=1`、bit4:3 为 `2`，表示 VBUS 有效且正在快速
+充电；充电完成后状态切换为 `0x5a`（`CHG_STAT=3`）。全量分区后的启动日志
+中 slot0/slot1 均通过 PBLBOOT 校验，并加载 slot0。
 
 ### 充电弹窗与输入卡死
 
-新板带电池并插电后，Pebble 的 “Charging” 模态弹窗会走到当前 ULP 尚未
-适配好的 modal/resource 路径，导致 Launcher 长时间不喂 task watchdog，
-KernelBG 持续不喂狗，约 9 秒后触发复位。表现上就是按键/触摸似乎都无
-反应。
+早期版本把 PA44 当作持续 VBUS 电平，并让上升/下降沿都重复投递充电事件；
+在 large battery icon 弹窗同时加载时，会放大 modal/状态机阻塞并触发
+KernelBG watchdog。现在 USB 状态改为 AW32001 `PG_STAT`，中断只负责投递
+一次去抖后的状态刷新，且只有状态真正变化才发送事件。
 
-ULP 保留 charging/fully-charged 模态和自动显示流程，但跳过 large battery
-icon 资源，只显示文本和背景色。这样既保留充电提示，也避免 Launcher 卡死。
-实机通过串口控制台确认：
+ULP 已恢复 charging/fully-charged 的 large battery icon：
+
+- `BATTERY_ICON_CHARGING_LARGE` 动态充电动画路径已恢复。
+- `BATTERY_ICON_FULL_LARGE` 充满图标路径已恢复。
+- 实机以临时 `4230 mV` 目标触发 `SYS_STATUS=0x52` 后连续运行 25 秒，
+  无 KernelBG watchdog、无复位；随后已恢复产品目标 `4215 mV` 并重新烧录。
+
+同时通过串口控制台确认：
 
 - PA34 Back：EXT 中断、down/up 消抖事件。
 - PA43 Select：EXT 中断、down/up 消抖事件。
 - FT6146：触摸中间产生 down/up，并唤醒屏幕。
-- 屏蔽充电模态后连续运行 20 秒无 KernelBG watchdog 复位。
-
-后续需要继续定位 large icon 在上述资源/缩放路径中的具体阻塞点，再恢复
-带图标的弹窗。
+- 带动态充电动画运行 25 秒无 KernelBG watchdog 复位。
 
 ### 返回表盘加载延迟
 

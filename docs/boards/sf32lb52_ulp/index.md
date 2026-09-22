@@ -48,7 +48,7 @@ Heart-rate monitoring is explicitly out of scope for this ULP target.
 | Display | CO5300 QSPI, 390x450 | validated, 200x228 logical framebuffer scaled to full panel |
 | Touch | FT6146 over I2C1 | validated, scaled to logical coordinates |
 | Charger | AW32001 over I2C2, PA10/PA11 | battery, charging and USB detection validated |
-| VBUS detect | PA44 | active-high on the tested board revision |
+| Charger interrupt | PA44 / AW32001 `INT` | active-low pulse; USB state uses `PG_STAT`, not pad level |
 | Battery ADC | GPADC channel 7 | SF32LB52x VBAT channel, vendor ULP curve |
 
 The ULP display is a 390x450 AMOLED panel. The logical Pebble framebuffer is
@@ -115,7 +115,7 @@ productization tasks.
 - Port the FT6146 touch driver
 - Map KEY1/KEY2 and touch gestures to Pebble navigation
 - Implement battery/USB/charger reporting for the ULP board revision
-  (AW32001/I2C2 and PA44 detection are implemented and hardware-validated)
+  (AW32001/I2C2, `PG_STAT`, and PA44 interrupt are implemented and validated)
 
 ### P4: watch peripherals
 
@@ -199,10 +199,11 @@ Validated on 2026-09-21 with the ULP board connected as `COM16`:
 9. A blank board was fully provisioned with ROM flash table, PBLBOOT, slot0,
    slot1, system resources and PRF; PBLBOOT reported both slots valid and
    booted slot0.
-10. AW32001 reported `SYS_STATUS=0x52` while charging, PA44 reported VBUS
-    present, and GPADC channel 7 measured a plausible battery voltage.
+10. AW32001 reported `SYS_STATUS=0x52` (`PG_STAT=1`, `CHG_STAT=2`) while
+    charging and `0x5a` (`CHG_STAT=3`) after termination; GPADC channel 7
+    measured a plausible battery voltage.
 11. CO5300 `WRDISBV` brightness control is active; light-service OFF uses a
-    3% AMOLED floor instead of full display off.
+    6% AMOLED floor instead of full display off.
 
 Still to validate after enabling the real hardware backends:
 
@@ -219,9 +220,10 @@ Still to validate after enabling the real hardware backends:
   `0x12320000`, and PRF at `0x12A20000`. The ROM flash table remains an
   SDK-generated first-stage dependency and must be made repository-owned before
   production.
-- The tested ULP revision uses AW32001 at I2C2 address `0x49` and active-high
-  PA44 VBUS detection. Other board revisions still need their charger and
-  polarity confirmed before sharing a production firmware image.
+- The tested ULP revision uses AW32001 at I2C2 address `0x49`; USB presence is
+  `SYS_STATUS[1]` (`PG_STAT`) and PA44 is the active-low charger interrupt.
+  Other board revisions still need their charger and interrupt polarity
+  confirmed before sharing a production firmware image.
 - Display and touch are hardware-validated. Full-screen scaling uses the EPIC
   GPU with PSRAM strip staging; the previous 16-row black-line artifact is
   fixed.
