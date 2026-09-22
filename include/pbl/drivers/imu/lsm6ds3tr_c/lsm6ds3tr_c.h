@@ -17,6 +17,7 @@ typedef struct LSM6DS3TR_CState {
   uint8_t shake_sensitivity_percent;
   uint32_t sampling_interval_us;
   uint8_t odr_bits;
+  uint64_t last_shake_us;
   AccelDriverSample last_sample;
   TimerID sample_timer;
 } LSM6DS3TR_CState;

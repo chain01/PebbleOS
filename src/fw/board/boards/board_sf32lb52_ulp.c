@@ -255,7 +255,7 @@ static LSM6DS3TR_CState s_lsm6ds3tr_c_state;
 static const LSM6DS3TR_CConfig s_lsm6ds3tr_c_config = {
   .i2c = &s_i2c_lsm6ds3tr_c,
   .state = &s_lsm6ds3tr_c_state,
-  .axis_map = {0, 1, 2},
+  .axis_map = {[AXIS_X] = 1, [AXIS_Y] = 0, [AXIS_Z] = 2},
   .axis_dir = {1, 1, 1},
 };
 

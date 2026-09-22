@@ -46,8 +46,8 @@ PBL_LOG_MODULE_DEFINE(driver_accel_lsm6ds3tr_c, CONFIG_DRIVER_IMU_LOG_LEVEL);
 
 #define LSM6DS3TR_C_SHAKE_INTERVAL_US 20000U
 #define LSM6DS3TR_C_SHAKE_COOLDOWN_MS 300U
-#define LSM6DS3TR_C_SHAKE_MIN_MG 150U
-#define LSM6DS3TR_C_SHAKE_MAX_MG 2000U
+#define LSM6DS3TR_C_SHAKE_MIN_MG 200U
+#define LSM6DS3TR_C_SHAKE_MAX_MG 1800U
 
 static const uint32_t s_odr_intervals_us[] = {
   80000U, 38462U, 19231U, 9615U, 4808U,
@@ -137,13 +137,14 @@ static void prv_maybe_report_shake(const AccelDriverSample *sample) {
   const int32_t dz = sample->z - state->last_sample.z;
   const int32_t delta = abs(dx) + abs(dy) + abs(dz);
   const uint32_t threshold =
-      LSM6DS3TR_C_SHAKE_MIN_MG +
+      LSM6DS3TR_C_SHAKE_MAX_MG -
       ((LSM6DS3TR_C_SHAKE_MAX_MG - LSM6DS3TR_C_SHAKE_MIN_MG) *
        state->shake_sensitivity_percent) / 100U;
 
   if (delta < (int32_t)threshold ||
-      (sample->timestamp_us - state->last_sample.timestamp_us) <
-          (LSM6DS3TR_C_SHAKE_COOLDOWN_MS * 1000U)) {
+      (state->last_shake_us != 0U &&
+       (sample->timestamp_us - state->last_shake_us) <
+           (LSM6DS3TR_C_SHAKE_COOLDOWN_MS * 1000U))) {
     return;
   }
 
@@ -157,6 +158,7 @@ static void prv_maybe_report_shake(const AccelDriverSample *sample) {
     axis = AXIS_Z;
     direction = dz;
   }
+  state->last_shake_us = sample->timestamp_us;
   accel_cb_shake_detected(axis, direction);
 }
 
@@ -325,6 +327,7 @@ void accel_enable_shake_detection(bool on) {
     return;
   }
   state->shake_detection_enabled = on;
+  state->last_shake_us = 0U;
   state->last_sample.timestamp_us = 0U;
   if (!state->sampling_enabled) {
     (void)prv_configure_odr(on ? LSM6DS3TR_C_SHAKE_INTERVAL_US : 0U);
