@@ -9,7 +9,6 @@
 #include "kernel/events.h"
 #include <pbl/drivers/battery.h>
 #include <pbl/drivers/exti.h>
-#include <pbl/drivers/gpio.h>
 #include <pbl/drivers/i2c.h>
 #include "pbl/kernel/mutex.h"
 #include "pbl/services/new_timer/new_timer.h"
@@ -22,12 +21,19 @@ PBL_LOG_MODULE_DEFINE(driver_battery_aw32001, CONFIG_DRIVER_BATTERY_LOG_LEVEL);
 #define AW32001_REG_CHARGE_VOLTAGE      0x04U
 #define AW32001_REG_TIMER_CTRL          0x05U
 #define AW32001_REG_SYS_STATUS          0x08U
+#define AW32001_REG_FAULT               0x09U
 
 #define AW32001_CEB_DISABLE       (1U << 3U)
 #define AW32001_WDT_MASK          (3U << 5U)
-#define AW32001_STATUS_MASK       (3U << 3U)
+#define AW32001_PG_STAT           (1U << 1U)
+#define AW32001_CHG_STAT_MASK     (3U << 3U)
+#define AW32001_CHG_STAT_SHIFT    3U
+#define AW32001_CHG_PRECHARGE     1U
+#define AW32001_CHG_FAST          2U
+#define AW32001_CHG_DONE          3U
 #define AW32001_TARGET_VOLTAGE_MV 4215U
 #define AW32001_CHARGER_DEBOUNCE_MS 100U
+#define AW32001_CHARGER_POLL_MS 5000U
 
 #define BATTERY_ADC_CHANNEL       7U
 #define BATTERY_ADC_SAMPLE_COUNT  8U
@@ -37,6 +43,11 @@ PBL_LOG_MODULE_DEFINE(driver_battery_aw32001, CONFIG_DRIVER_BATTERY_LOG_LEVEL);
 
 static TimerID s_charger_debounce_timer = TIMER_INVALID_ID;
 static uint32_t s_battery_mv = BATTERY_ADC_FALLBACK_MV;
+static bool s_charger_status_valid;
+static bool s_usb_connected;
+static uint8_t s_charge_state;
+static uint8_t s_charger_fault;
+static volatile bool s_charger_update_pending;
 
 static ADC_HandleTypeDef s_adc = {
   .Instance = hwp_gpadc1,
@@ -70,37 +81,74 @@ static bool prv_update_register(uint8_t reg, uint8_t mask, uint8_t value) {
   return prv_write_register(reg, current);
 }
 
-static bool prv_usb_connected_raw(void) {
-  const InputConfig usb_detect = {
-    .gpio = BOARD_CONFIG_POWER.pmic_int.peripheral,
-    .gpio_pin = BOARD_CONFIG_POWER.pmic_int.gpio_pin,
-  };
-  // The ULP VBUS_DET line is active high.
-  return gpio_input_read(&usb_detect);
-}
+static void prv_charger_update_cb(void *unused) {
+  (void)unused;
+  uint8_t status;
+  if (!prv_read_register(AW32001_REG_SYS_STATUS, &status)) {
+    PBL_LOG_WRN("AW32001 status read failed");
+    if (s_charger_debounce_timer != TIMER_INVALID_ID) {
+      new_timer_start(s_charger_debounce_timer, AW32001_CHARGER_POLL_MS,
+                      prv_charger_update_cb, NULL, 0 /* flags */);
+    }
+    return;
+  }
 
-static void prv_charger_debounce_cb(void *unused) {
-  const bool connected = prv_usb_connected_raw();
-  PebbleEvent event = {
-    .type = PEBBLE_BATTERY_CONNECTION_EVENT,
-    .battery_connection = {
-      .is_connected = connected,
-    },
-  };
-  event_put(&event);
+  const bool connected = (status & AW32001_PG_STAT) != 0U;
+  const uint8_t charge_state = (status & AW32001_CHG_STAT_MASK) >> AW32001_CHG_STAT_SHIFT;
+  const bool status_changed = !s_charger_status_valid ||
+                              connected != s_usb_connected ||
+                              charge_state != s_charge_state;
+
+  uint8_t fault = s_charger_fault;
+  const bool fault_read = prv_read_register(AW32001_REG_FAULT, &fault);
+  const bool fault_changed = fault_read && fault != s_charger_fault;
+  if (!fault_read) {
+    PBL_LOG_WRN("AW32001 fault read failed");
+  }
+
+  s_usb_connected = connected;
+  s_charge_state = charge_state;
+  s_charger_status_valid = true;
+  if (fault_read) {
+    s_charger_fault = fault;
+  }
+
+  if (status_changed || fault_changed) {
+    PBL_LOG_INFO("AW32001 status: 0x%02x pg=%u chg=%u fault=0x%02x",
+                 status, (unsigned)connected, (unsigned)charge_state, s_charger_fault);
+  }
+
+  if (status_changed) {
+    PebbleEvent event = {
+      .type = PEBBLE_BATTERY_CONNECTION_EVENT,
+      .battery_connection = {
+        .is_connected = connected,
+      },
+    };
+    event_put(&event);
+  }
+
+  if (s_charger_debounce_timer != TIMER_INVALID_ID) {
+    new_timer_start(s_charger_debounce_timer, AW32001_CHARGER_POLL_MS,
+                    prv_charger_update_cb, NULL, 0 /* flags */);
+  }
 }
 
 static void prv_schedule_charger_update(void *unused) {
+  s_charger_update_pending = false;
   if (s_charger_debounce_timer != TIMER_INVALID_ID) {
     new_timer_start(s_charger_debounce_timer, AW32001_CHARGER_DEBOUNCE_MS,
-                    prv_charger_debounce_cb, NULL, 0 /* flags */);
+                    prv_charger_update_cb, NULL, 0 /* flags */);
   } else {
-    prv_charger_debounce_cb(NULL);
+    prv_charger_update_cb(NULL);
   }
 }
 
 static void prv_charger_interrupt_handler(bool *should_context_switch) {
-  system_task_add_callback_from_isr(prv_schedule_charger_update, NULL, should_context_switch);
+  if (!s_charger_update_pending) {
+    s_charger_update_pending = true;
+    system_task_add_callback_from_isr(prv_schedule_charger_update, NULL, should_context_switch);
+  }
 }
 
 static bool prv_adc_init(void) {
@@ -244,7 +292,8 @@ void battery_init(void) {
   if (s_charger_debounce_timer == TIMER_INVALID_ID) {
     PBL_LOG_ERR("AW32001 charger debounce timer unavailable");
   }
-  exti_configure_pin(BOARD_CONFIG_POWER.pmic_int, ExtiTrigger_RisingFalling,
+  prv_charger_update_cb(NULL);
+  exti_configure_pin(BOARD_CONFIG_POWER.pmic_int, ExtiTrigger_Falling,
                      prv_charger_interrupt_handler);
   exti_enable(BOARD_CONFIG_POWER.pmic_int);
 
@@ -253,15 +302,9 @@ void battery_init(void) {
     PBL_LOG_ERR("AW32001 battery ADC init failed");
   }
   prv_read_battery_voltage(true);
-  uint8_t status = 0;
-  (void)prv_read_register(AW32001_REG_SYS_STATUS, &status);
-  const InputConfig usb_detect = {
-    .gpio = BOARD_CONFIG_POWER.pmic_int.peripheral,
-    .gpio_pin = BOARD_CONFIG_POWER.pmic_int.gpio_pin,
-  };
-  PBL_LOG_INFO("AW32001 ready: %u mV, status=0x%02x, vbus_det=%d, plugged=%d",
-               (unsigned)s_battery_mv, status, (int)gpio_input_read(&usb_detect),
-               (int)battery_is_usb_connected_impl());
+  PBL_LOG_INFO("AW32001 ready: %u mV, plugged=%d, chg=%u, fault=0x%02x",
+               (unsigned)s_battery_mv, (int)s_usb_connected, (unsigned)s_charge_state,
+               s_charger_fault);
 }
 
 int battery_get_millivolts(void) {
@@ -279,15 +322,12 @@ int battery_get_constants(BatteryConstants *constants) {
 }
 
 bool battery_charge_controller_thinks_we_are_charging_impl(void) {
-  uint8_t status;
-  if (!prv_read_register(AW32001_REG_SYS_STATUS, &status)) {
-    return false;
-  }
-  return (status & AW32001_STATUS_MASK) != 0U;
+  return s_charger_status_valid && s_usb_connected &&
+         (s_charge_state == AW32001_CHG_PRECHARGE || s_charge_state == AW32001_CHG_FAST);
 }
 
 bool battery_is_usb_connected_impl(void) {
-  return prv_usb_connected_raw();
+  return s_charger_status_valid && s_usb_connected;
 }
 
 void battery_set_charge_enable(bool charging_enabled) {
@@ -320,20 +360,24 @@ uint32_t battery_convert_reading_to_millivolts(ADCVoltageMonitorReading reading,
 }
 
 int battery_charge_status_get(BatteryChargeStatus *status) {
-  uint8_t charger_status;
-  if (!prv_read_register(AW32001_REG_SYS_STATUS, &charger_status)) {
+  if (!s_charger_status_valid) {
     *status = BatteryChargeStatusUnknown;
     return -1;
   }
 
-  switch ((charger_status & AW32001_STATUS_MASK) >> 3U) {
-    case 1:
+  if (!s_usb_connected) {
+    *status = BatteryChargeStatusUnknown;
+    return 0;
+  }
+
+  switch (s_charge_state) {
+    case AW32001_CHG_PRECHARGE:
       *status = BatteryChargeStatusTrickle;
       break;
-    case 2:
+    case AW32001_CHG_FAST:
       *status = BatteryChargeStatusCC;
       break;
-    case 3:
+    case AW32001_CHG_DONE:
       *status = BatteryChargeStatusComplete;
       break;
     default:

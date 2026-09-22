@@ -42,17 +42,13 @@ static const ResourceId s_warning_icon[] = {
 static void prv_update_ui_fully_charged(Dialog *dialog, void *ignored) {
   dialog_set_text(dialog, i18n_get("Fully Charged", dialog));
   dialog_set_background_color(dialog, GColorKellyGreen);
-#if !defined(CONFIG_BOARD_SF32LB52_ULP)
   dialog_set_icon(dialog, RESOURCE_ID_BATTERY_ICON_FULL_LARGE);
-#endif
 }
 
 static void prv_update_ui_charging(Dialog *dialog, void *ignored) {
   dialog_set_text(dialog, i18n_get("Charging", dialog));
   dialog_set_background_color(dialog, GColorLightGray);
-#if !defined(CONFIG_BOARD_SF32LB52_ULP)
   dialog_set_icon(dialog, RESOURCE_ID_BATTERY_ICON_CHARGING_LARGE);
-#endif
 }
 
 static void prv_update_ui_warning(Dialog *dialog, void *context) {

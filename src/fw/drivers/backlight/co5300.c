@@ -6,7 +6,7 @@
 
 // CO5300 brightness 0 turns the AMOLED completely off. Keep a low but visible
 // image in the Pebble light-service idle state instead.
-#define CO5300_STANDBY_BRIGHTNESS_PERCENT 3U
+#define CO5300_STANDBY_BRIGHTNESS_PERCENT 6U
 
 static uint8_t s_brightness = 100U;
 
