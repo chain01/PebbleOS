@@ -356,7 +356,9 @@ static void prv_decline_click_handler(ClickRecognizerRef recognizer, void *ctx) 
 
 static void prv_user_confirmation_click_config_provider(void *unused) {
   window_single_click_subscribe(BUTTON_ID_UP, prv_confirm_click_handler);
+  window_single_click_subscribe(BUTTON_ID_SELECT, prv_confirm_click_handler);
   window_single_click_subscribe(BUTTON_ID_DOWN, prv_decline_click_handler);
+  window_single_click_subscribe(BUTTON_ID_BACK, prv_decline_click_handler);
 }
 
 static void prv_window_load(Window *window) {
@@ -410,7 +412,11 @@ static void prv_window_load(Window *window) {
   data->decline_bitmap = gbitmap_create_with_resource(RESOURCE_ID_ACTION_BAR_ICON_X);
   action_bar_layer_set_click_config_provider(action_bar_layer,
                                              prv_user_confirmation_click_config_provider);
+#if defined(CONFIG_BOARD_SF32LB52_ULP)
+  action_bar_layer_set_icon(action_bar_layer, BUTTON_ID_SELECT, data->approve_bitmap);
+#else
   action_bar_layer_set_icon(action_bar_layer, BUTTON_ID_UP, data->approve_bitmap);
+#endif
   action_bar_layer_set_icon(action_bar_layer, BUTTON_ID_DOWN, data->decline_bitmap);
   action_bar_layer_set_context(action_bar_layer, data);
 
