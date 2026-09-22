@@ -730,6 +730,20 @@ PFS 对同一文件的第二次打开返回 `E_BUSY`，settings 层将其视为�
 80 秒，仅保留上电时的一次 `SFBL`，没有 `CROAK`、没有 firmware failure
 复位，也没有重复重连。
 
+### 表盘传输后不保存
+
+修复断言后，新表盘可以正常启动，但离开再返回表盘时会回退到旧默认表盘。
+检查 PFS 时发现 `appdb` 中存在新表盘记录，但对应 `appN`/`resN` 文件和
+`appcache` 条目已被删除。
+
+根因是 app cache 在所有非 Asterix/Obelix 板卡上固定保留 `4 MiB` PFS
+空间。ULP 的 PFS 总容量约 `4.5 MiB`，实际可用空间约 `2 MiB`，因此每次
+App Fetch 完成后都会进入空间清理并立即淘汰刚安装的表盘。
+
+ULP 现在和 Asterix/Obelix 一样使用 `300 KiB` 安全余量。实机重新传输表盘后，
+`pfs ls` 中对应 `@00000004/app`、`@00000004/res` 和 `appcache` 条目均
+保留，可用空间约 `2 MiB`，没有再出现 `Cache OOS` 或应用淘汰日志。
+
 ## 当前限制与下一步
 
 当前版本已经完成最小系统启动，但仍不是可量产镜像：

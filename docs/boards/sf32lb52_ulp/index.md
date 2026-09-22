@@ -206,6 +206,8 @@ Validated on 2026-09-21 with the ULP board connected as `COM16`:
     6% AMOLED floor instead of full display off.
 12. A watchface App Fetch completed through `App fetch cleanup with result 0`
     without the app-cache reentrancy assertion or a follow-up reset.
+13. Fetched watchface `app`/`res` files and the `appcache` entry remain in PFS
+    after installation; ULP reserves a 300 KiB cache headroom instead of 4 MiB.
 
 Still to validate after enabling the real hardware backends:
 
