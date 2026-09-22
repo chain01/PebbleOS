@@ -39,19 +39,21 @@ static const ResourceId s_warning_icon[] = {
   RESOURCE_ID_BATTERY_ICON_LOW_LARGE, RESOURCE_ID_BATTERY_ICON_VERY_LOW_LARGE
 };
 
-#if !defined(CONFIG_BOARD_SF32LB52_ULP)
 static void prv_update_ui_fully_charged(Dialog *dialog, void *ignored) {
   dialog_set_text(dialog, i18n_get("Fully Charged", dialog));
   dialog_set_background_color(dialog, GColorKellyGreen);
+#if !defined(CONFIG_BOARD_SF32LB52_ULP)
   dialog_set_icon(dialog, RESOURCE_ID_BATTERY_ICON_FULL_LARGE);
+#endif
 }
 
 static void prv_update_ui_charging(Dialog *dialog, void *ignored) {
   dialog_set_text(dialog, i18n_get("Charging", dialog));
   dialog_set_background_color(dialog, GColorLightGray);
+#if !defined(CONFIG_BOARD_SF32LB52_ULP)
   dialog_set_icon(dialog, RESOURCE_ID_BATTERY_ICON_CHARGING_LARGE);
-}
 #endif
+}
 
 static void prv_update_ui_warning(Dialog *dialog, void *context) {
   const BatteryWarningDisplayData *data = context;
@@ -133,29 +135,19 @@ static void prv_display_modal(WindowStack *stack, DialogUpdateFn update_fn, void
 ////////////////////
 
 void battery_ui_display_plugged(void) {
-#if defined(CONFIG_BOARD_SF32LB52_ULP)
-  // The ULP bring-up resource/modal path stalls the launcher when charging.
-  // Charging state remains available in the status UI and battery service.
-  return;
-#else
   // If we're plugged in for charging, we want to alert the user of this,
   // but we don't want to overlay ourselves over anything they may have
   // on the screen at the moment.
   WindowStack *stack = modal_manager_get_window_stack(ModalPriorityGeneric);
   prv_display_modal(stack, prv_update_ui_charging, NULL);
-#endif
 }
 
 void battery_ui_display_fully_charged(void) {
-#if defined(CONFIG_BOARD_SF32LB52_ULP)
-  return;
-#else
   // If we're plugged in (charged), we want to alert the user of this,
   // but we don't want to overlay ourselves over anything they may have
   // on the screen at the moment.
   WindowStack *stack = modal_manager_get_window_stack(ModalPriorityGeneric);
   prv_display_modal(stack, prv_update_ui_fully_charged, NULL);
-#endif
 }
 
 void battery_ui_display_warning(uint32_t percent, BatteryUIWarningLevel warning_level) {
