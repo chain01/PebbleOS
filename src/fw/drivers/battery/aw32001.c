@@ -7,7 +7,6 @@
 #include "board/board.h"
 #include "bf0_hal.h"
 #include "kernel/events.h"
-#include "kernel/util/sleep.h"
 #include <pbl/drivers/battery.h>
 #include <pbl/drivers/exti.h>
 #include <pbl/drivers/gpio.h>
@@ -31,8 +30,9 @@ PBL_LOG_MODULE_DEFINE(driver_battery_aw32001, CONFIG_DRIVER_BATTERY_LOG_LEVEL);
 #define AW32001_CHARGER_DEBOUNCE_MS 100U
 
 #define BATTERY_ADC_CHANNEL       7U
-#define BATTERY_ADC_SAMPLE_COUNT  22U
-#define BATTERY_ADC_DELAY_MS      10U
+#define BATTERY_ADC_SAMPLE_COUNT  8U
+#define BATTERY_ADC_DELAY_US      1000U
+#define BATTERY_ADC_CACHE_MS      1000U
 #define BATTERY_ADC_FALLBACK_MV   4000
 
 static TimerID s_charger_debounce_timer = TIMER_INVALID_ID;
@@ -43,6 +43,8 @@ static ADC_HandleTypeDef s_adc = {
 };
 static HAL_ADC_CalibContextTypeDef s_adc_calib;
 static bool s_adc_ready;
+static bool s_battery_mv_valid;
+static uint32_t s_battery_mv_last_read_ms;
 static PBL_MUTEX_DEFINE(s_adc_mutex);
 
 static bool prv_read_register(uint8_t reg, uint8_t *value) {
@@ -134,7 +136,7 @@ static bool prv_adc_init(void) {
     return false;
   }
 
-  psleep(300);
+  HAL_Delay_us(300000);
   return true;
 }
 
@@ -161,7 +163,7 @@ static bool prv_adc_read_mv(uint32_t *result_mv) {
     samples[i] = HAL_ADC_GetValue(&s_adc, BATTERY_ADC_CHANNEL);
     total += samples[i];
     ADC_SET_MUTE(&s_adc);
-    psleep(BATTERY_ADC_DELAY_MS);
+    HAL_Delay_us(BATTERY_ADC_DELAY_US);
   }
 
   HAL_ADC_Stop(&s_adc);
@@ -189,8 +191,12 @@ static bool prv_adc_read_mv(uint32_t *result_mv) {
   return true;
 }
 
-static void prv_read_battery_voltage(void) {
+static void prv_read_battery_voltage(bool force) {
   if (!s_adc_ready) {
+    return;
+  }
+  if (!force && s_battery_mv_valid &&
+      (HAL_GetTick() - s_battery_mv_last_read_ms) < BATTERY_ADC_CACHE_MS) {
     return;
   }
 
@@ -199,12 +205,14 @@ static void prv_read_battery_voltage(void) {
   const bool success = prv_adc_read_mv(&voltage_mv);
   pbl_mutex_unlock(&s_adc_mutex);
 
+  s_battery_mv_last_read_ms = HAL_GetTick();
   if (!success) {
     PBL_LOG_ERR("AW32001 battery ADC read failed");
   } else if (voltage_mv < 2500U || voltage_mv > 5000U) {
     PBL_LOG_WRN("AW32001 battery ADC out of range: %u mV", (unsigned)voltage_mv);
   } else {
     s_battery_mv = voltage_mv;
+    s_battery_mv_valid = true;
   }
 }
 
@@ -244,7 +252,7 @@ void battery_init(void) {
   if (!s_adc_ready) {
     PBL_LOG_ERR("AW32001 battery ADC init failed");
   }
-  prv_read_battery_voltage();
+  prv_read_battery_voltage(true);
   uint8_t status = 0;
   (void)prv_read_register(AW32001_REG_SYS_STATUS, &status);
   const InputConfig usb_detect = {
@@ -257,7 +265,7 @@ void battery_init(void) {
 }
 
 int battery_get_millivolts(void) {
-  prv_read_battery_voltage();
+  prv_read_battery_voltage(false);
   return (int)s_battery_mv;
 }
 
