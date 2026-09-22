@@ -26,6 +26,7 @@ config FLASH_OFFSET
     default 0x20000
 
 config FW_FLASH_SIZE
+    default 0x80000 if BOARD_SF32LB52_ULP && RECOVERY_FW && !MFG && !RECOVERY_FW_AS_FW
     default 0x90000 if RECOVERY_FW && !MFG && !RECOVERY_FW_AS_FW
     default 0x300000
 

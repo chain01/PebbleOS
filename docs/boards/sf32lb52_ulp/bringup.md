@@ -479,6 +479,62 @@ X/Y 均不做镜像。四方向、四角和中心触摸已与显示方向核对�
 - 使用 PSRAM 整帧缓冲后横向条带乱码消失。
 - 使用 EPIC GPU 分段缩放后，16 行黑线消失，滚动和页面动画流畅度正常。
 
+## PRF recovery 镜像构建与识别
+
+ULP 目标现在可以独立构建 PRF recovery 镜像，并在普通固件中识别。构建命令：
+
+```shell
+cmake -S . -B build-ulp-prf-arm10 -GNinja `
+  -DBOARD=sf32lb52_ulp -DVARIANT=prf `
+  -DCONFIG_LIBC_NEWLIB_NANO=y -DCONFIG_LIBC_PICOLIBC=n
+cmake --build build-ulp-prf-arm10 -j 16
+```
+
+本板 PRF 使用 512 KiB `SAFE_FIRMWARE` 区域，链接配置固定为：
+
+```text
+CONFIG_FLASH_OFFSET=0xa20000
+CONFIG_FW_FLASH_SIZE=0x80000
+```
+
+构建结果：
+
+```text
+FLASH: 491395 B / 512 KB (93.73%)
+```
+
+由于当前仍是 `CONFIG_PBLBOOT=n` 的 legacy raw-XIP 布局，刷入 PRF 前必须
+添加 12 字节 `FirmwareDescription`：
+
+```shell
+python tools/insert_firmware_descr.py `
+  build-ulp-prf-arm10/pebbleos.bin `
+  build-ulp-prf-arm10/pebbleos-prf.bin
+
+sftool -c SF32LB52 -p COM16 -b 1000000 --after no_reset `
+  write_flash --verify `
+  "build-ulp-prf-arm10/pebbleos-prf.bin@0x12A20000"
+```
+
+重启普通固件后，用串口 shell 查询：
+
+```text
+>version
+Running FW:
+  tag:v4.37.0-94-gc56b058d9-dirty
+  recov:0
+  platform:18
+Recovery FW:
+  tag:v4.37.0-95-g9ee038962-dirty
+  recov:1
+  platform:18
+```
+
+这说明普通固件已经能读取并通过 CRC 校验 PRF。当前仍缺少的是让 SiFli
+bootloader/PBLBOOT 选择并启动该 recovery 镜像，以及与其配套的 OTA、
+slot 切换和回滚流程；这些完成前，PRF 只能算“已安装并可被系统识别”，
+还不能算“可自动恢复启动”。
+
 ## 当前限制与下一步
 
 当前版本已经完成最小系统启动，但仍不是可量产镜像：
@@ -490,7 +546,7 @@ X/Y 均不做镜像。四方向、四角和中心触摸已与显示方向核对�
 - battery、sensor、audio 仍为 stub 或未验证；display 和 touch 已通过硬件验证。
 - HRM 不在本 ULP 目标范围内，不再列为后续适配项。
 - 全屏缩放已通过 EPIC GPU 分段加速完成，旧的 CPU 缩放描述已废弃。
-- resource map 仍是临时 Obelix map。
+- normal resource map 仍临时复用 Obelix map；PRF 已有 ULP 专用资源映射。
 - SDK 预构建 bootloader 只是 bring-up 依赖，需要纳入源码构建。
 - `PBULP_ENTER` / `PBULP_INIT_OK` 是非 release 构建的早期 marker，正式版本
   会由 `CONFIG_RELEASE` 自动去掉。

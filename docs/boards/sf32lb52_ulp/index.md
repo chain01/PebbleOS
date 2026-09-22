@@ -82,6 +82,12 @@ Once the board boots reliably, the target can be migrated to the dual-slot
 PBLBOOT layout. That migration requires programming the Pebble bootloader and
 its flash table before changing `CONFIG_PBLBOOT` back to `y`.
 
+A ULP PRF image can also be built for the current raw-XIP layout, wrapped with
+the legacy 12-byte `FirmwareDescription`, and installed at `0x12A20000`.
+The normal firmware then reports it through the `version` console command and
+the system-version protocol. This validates the recovery image and storage, but
+the current SDK bootloader still cannot select it for recovery boot or rollout.
+
 ## Requirements breakdown
 
 ### P0: buildable board target
@@ -221,10 +227,11 @@ Still to validate after enabling the real hardware backends:
   completed without a reset, but two transient `KernelBG` stalls recovered
   during weather/BLE synchronization. These should be eliminated before a
   release build is considered stable.
-- The current single-slot image has no PRF/recovery firmware. Until PBLBOOT/PRF
-  is added, enable the Pebble App developer setting `Ignore Missing PRF` so it
-  connects as a normal watch instead of `ConnectedInPrf`; otherwise app,
-  language-pack, music and notification services remain unavailable.
+- A valid PRF image can now be built and installed in `SAFE_FIRMWARE`, and the
+  normal firmware reports `recov:1` through the `version` command. Recovery
+  boot, slot switching, OTA and rollback still require the PBLBOOT migration.
+  The mobile-app `Ignore Missing PRF` workaround may no longer be necessary
+  now that recovery metadata is present, but this still needs an App retest.
 - `LOG_DOMAIN_BT_STACK` must be nonzero for HCI/NimBLE transport diagnostics to
   be emitted; otherwise transport errors are silently dropped by the logger.
 

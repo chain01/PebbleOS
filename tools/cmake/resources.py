@@ -78,7 +78,7 @@ def make_bld(args):
 
 
 def _load_map(path):
-    with open(path) as f:
+    with open(path, encoding="utf-8") as f:
         return json.load(f)
 
 
@@ -86,7 +86,7 @@ def _load_config(path):
     """The Kconfig symbols the build has enabled."""
     if not path:
         return set()
-    with open(path) as f:
+    with open(path, encoding="utf-8") as f:
         return {
             line.split("=", 1)[0]
             for line in (raw.strip() for raw in f)
@@ -254,7 +254,7 @@ def cmd_manifest(args):
     lines.extend(f'  "{path}"\n' for path in reso_files)
     lines.append(")\n")
 
-    with open(args.cmake_output, "w") as f:
+    with open(args.cmake_output, "w", encoding="utf-8") as f:
         f.writelines(lines)
 
     print(
@@ -355,10 +355,10 @@ def cmd_layouts(args):
         for r in manifest["timeline"]
         if not r.get("internal", False)
     }
-    with open(args.template) as f:
+    with open(args.template, encoding="utf-8") as f:
         content = f.read()
     content = content.replace("@RESOURCE_URIS@", json.dumps(uris, indent=4))
-    with open(args.output, "w") as f:
+    with open(args.output, "w", encoding="utf-8") as f:
         f.write(content)
 
 
@@ -403,7 +403,7 @@ def cmd_tzdata_header(args):
     """The same database, as a C array the timezone tests link against."""
     import generate_c_byte_array
 
-    with open(args.output, "w") as f:
+    with open(args.output, "w", encoding="utf-8") as f:
         generate_c_byte_array.write(f, _tzdata(args.input), "s_timezone_database")
 
 
