@@ -64,7 +64,7 @@ static int16_t prv_clamp(int16_t value, int16_t min, int16_t max) {
 
 static void prv_report_up(void) {
   if (s_touching) {
-    PBL_LOG_INFO("FT6146 up x=%d y=%d", s_last_x, s_last_y);
+    PBL_LOG_DBG("FT6146 up x=%d y=%d", s_last_x, s_last_y);
     touch_handle_update(TouchState_FingerUp, s_last_x, s_last_y);
     s_touching = false;
   }
@@ -100,7 +100,7 @@ static void prv_poll_timer_cb(void *unused) {
 
   const uint8_t touch_count = point_data[1] & 0x0F;
   if ((++s_poll_count % 33U) == 0U) {
-    PBL_LOG_INFO("FT6146 heartbeat count=%u raw=%02X %02X %02X %02X", touch_count,
+    PBL_LOG_DBG("FT6146 heartbeat count=%u raw=%02X %02X %02X %02X", touch_count,
                  point_data[0], point_data[1], point_data[2], point_data[3]);
   }
   if (touch_count == 0) {
@@ -120,7 +120,7 @@ static void prv_poll_timer_cb(void *unused) {
   y = prv_clamp(y, 0, PBL_DISPLAY_HEIGHT - 1);
 
   if (!s_touching || x != s_last_x || y != s_last_y) {
-    PBL_LOG_INFO("FT6146 down x=%d y=%d", x, y);
+    PBL_LOG_DBG("FT6146 down x=%d y=%d", x, y);
     touch_handle_update(TouchState_FingerDown, x, y);
     s_touching = true;
     s_last_x = x;
@@ -187,6 +187,6 @@ void touch_sensor_set_enabled(bool enabled) {
   } else {
     // Keep polling during bring-up so physical touch tests remain observable
     // even before the shell has installed a touch subscriber.
-    PBL_LOG_INFO("FT6146 disable ignored for bring-up");
+    PBL_LOG_DBG("FT6146 disable ignored for bring-up");
   }
 }

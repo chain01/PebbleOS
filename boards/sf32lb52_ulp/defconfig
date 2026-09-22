@@ -56,10 +56,10 @@ CONFIG_APP_SCALING=y
 
 CONFIG_BRINGUP_NO_STORED_APPS=y
 
-# Bring-up only: emit plain-text logs and avoid a WDT reset before the
-# scheduler and task watchdog are known-good.
+# Bring-up: emit plain-text logs on the debug UART. The hardware watchdog is
+# enabled and fed through the normal task-watchdog path.
 # CONFIG_PULSE_EVERYWHERE is not set
-CONFIG_NO_WATCHDOG=y
+# CONFIG_NO_WATCHDOG is not set
 
 # Bring-up: NimBLE uses the SF32LB52 LCPU controller.
 CONFIG_BT_FW_NIMBLE=y

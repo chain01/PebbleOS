@@ -19,9 +19,7 @@ Stage 1 intentionally keeps the board-specific surface small:
 - FT6146 touch controller with scaled logical coordinates
 - No-op battery, accelerometer, ambient light, backlight and vibration drivers
 - MPI1 8 MiB PSRAM initialization for the panel framebuffer
-- Stored apps disabled for the first firmware link (`CONFIG_BRINGUP_NO_STORED_APPS`)
-- Watchdog disabled during the first bring-up (`CONFIG_NO_WATCHDOG`) until the
-  scheduler/task-watchdog path is validated
+- Stored apps disabled for the first firmware link (`CONFIG_BRINGUP_NO_STORED_APPS`).
 
 Hardware bring-up notes and the exact validated flashing/reset procedure are in
 {doc}`boards/sf32lb52_ulp/bringup`.
@@ -33,7 +31,8 @@ The following hardware is deliberately not enabled yet:
 - MMC5603NJ magnetometer
 - Microphone, speaker and real vibration motor
 - Battery charger and real fuel-gauge reporting
-- Heart-rate monitoring and other medical/health sensors
+
+Heart-rate monitoring is explicitly out of scope for this ULP target.
 
 ## Hardware mapping
 
@@ -191,11 +190,9 @@ Validated on 2026-09-21 with the ULP board connected as `COM16`:
 
 Still to validate after enabling the real hardware backends:
 
-- watchdog and task-watchdog feed timing
 - Full phone feature interoperability: notifications, timeline, weather,
   watchface settings and app message delivery
 - battery, sensors and audio
-- EPIC GPU acceleration for full-screen scaling
 
 ## Known assumptions and risks
 
@@ -220,6 +217,10 @@ Still to validate after enabling the real hardware backends:
 - A persisted airplane-mode flag in `gap_bonding_db` silently prevents the BT
   driver from starting. The bring-up notes document how to distinguish this
   from an LCPU/NimBLE failure before changing controller code.
+- The hardware watchdog is enabled and the 75-second reconnection smoke test
+  completed without a reset, but two transient `KernelBG` stalls recovered
+  during weather/BLE synchronization. These should be eliminated before a
+  release build is considered stable.
 - The current single-slot image has no PRF/recovery firmware. Until PBLBOOT/PRF
   is added, enable the Pebble App developer setting `Ignore Missing PRF` so it
   connects as a normal watch instead of `ConnectedInPrf`; otherwise app,

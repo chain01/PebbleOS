@@ -1,5 +1,6 @@
 build
 build-test
+build-ulp-arm10
 xcode
 
 .ycm*

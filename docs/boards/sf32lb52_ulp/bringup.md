@@ -128,17 +128,26 @@ bring-up 阶段先关闭该选项，改为可读文本日志：
 
 修复后 `HAL_FLASH_Init()` 返回 `HAL_OK`，并成功识别 `XT25F128F`。
 
-### 3. 启动约 12 秒后复位
+### 3. 启动约 12 秒后复位与 watchdog 恢复
 
-SF32LB52X 的 WDT 超时为 10 秒。最小系统尚未到达任务级喂狗路径，因此在
-`Ready for communication.` 前会被 WDT 复位。bring-up 阶段使用：
+SF32LB52X 的 WDT 超时为 10 秒。最初最小系统尚未到达任务级喂狗路径，因此
+在 `Ready for communication.` 前会被 WDT 复位。首次 bring-up 临时使用
+`CONFIG_NO_WATCHDOG=y`，该选项会让 `soc_early_init()` 跳过
+`watchdog_init()/watchdog_start()`。
 
-```text
-CONFIG_NO_WATCHDOG=y
-```
+在 FreeRTOS、SysTick 和 task-watchdog 路径打通后，ULP 板已移除
+`CONFIG_NO_WATCHDOG`，恢复 SF32LB52 硬件看门狗：
 
-实现上 `soc_early_init()` 的 `#ifndef CONFIG_NO_WATCHDOG` 会跳过
-`watchdog_init()/watchdog_start()`。完成调度器和任务喂狗验证后再恢复。
+- 10 秒硬件超时，任务级 watchdog 正常喂狗。
+- 启动后先暂停 task-watchdog 30 秒，之后由 NewTimers 和 KernelMain/
+  KernelBackground 的正常调度路径喂狗。
+- 2026-09-22 实机烧录并连续抓取 75 秒日志：`SFBL`、`PBULP_ENTER` 和
+  `Ready for communication.` 均只出现一次，没有 core dump 或复位。
+- 手机重连后执行天气/BLE 同步时，出现过两次约 5 秒的 `KernelBG` 瞬时
+  滞后，但都在约 0.5 秒后恢复，没有触发 6.5 秒的任务失败重启路径。
+
+因此硬件 watchdog 和基础喂狗链路已经恢复；下一轮需要减少 ULP 调试日志、
+定位天气/BLE 并发时的短时 `KernelBG` 滞后，并在 release 构建下复测。
 
 ### 4. Bluetooth/LCPU：BLE MAC 生成失败
 
@@ -476,10 +485,11 @@ X/Y 均不做镜像。四方向、四角和中心触摸已与显示方向核对�
 
 - LCPU/NimBLE 广告、GATT、Android 配对/绑定、自动重连和 App Store
   表盘安装已验证；通知、时间线、天气和表盘设置等完整手机功能仍需测试。
-- watchdog 未启用，需要恢复并验证任务喂狗。
+- watchdog 已启用；手机重连和天气/BLE 同步时仍需消除偶发的 KernelBG 短时滞后。
 - PULSE 已关闭，正式日志方案需要恢复协议并接入解码工具。
 - battery、sensor、audio 仍为 stub 或未验证；display 和 touch 已通过硬件验证。
-- 显示缩放目前由 CPU 完成，EPIC GPU 加速尚未启用。
+- HRM 不在本 ULP 目标范围内，不再列为后续适配项。
+- 全屏缩放已通过 EPIC GPU 分段加速完成，旧的 CPU 缩放描述已废弃。
 - resource map 仍是临时 Obelix map。
 - SDK 预构建 bootloader 只是 bring-up 依赖，需要纳入源码构建。
 - `PBULP_ENTER` / `PBULP_INIT_OK` 是非 release 构建的早期 marker，正式版本
