@@ -259,13 +259,9 @@ status_t app_cache_free_up_space(uint32_t bytes_needed) {
   status_t rv;
   pbl_mutex_lock(&s_app_cache_mutex, PBL_FOREVER);
   {
-    SettingsFile file;
-    rv = settings_file_open(&file, APP_CACHE_FILE_NAME, APP_CACHE_MAX_SIZE);
-    if (rv != S_SUCCESS) {
-      goto unlock;
-    }
-
     // we don't want to remove any default apps or quick launch apps, so keep them in a list.
+    // Build this before opening appcache: watchface_get_default_install_id() can query the
+    // cache and opening the same settings file twice returns E_BUSY.
     EachEvictData evict_data = (EachEvictData){
       .bytes_needed = bytes_needed,
       .do_not_evict = {
@@ -283,6 +279,12 @@ status_t app_cache_free_up_space(uint32_t bytes_needed) {
         worker_preferences_get_default_worker(),
       },
     };
+
+    SettingsFile file;
+    rv = settings_file_open(&file, APP_CACHE_FILE_NAME, APP_CACHE_MAX_SIZE);
+    if (rv != S_SUCCESS) {
+      goto unlock;
+    }
 
     settings_file_each(&file, prv_each_free_up_space, &evict_data);
     settings_file_close(&file);
