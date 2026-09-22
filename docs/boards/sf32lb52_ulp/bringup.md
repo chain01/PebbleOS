@@ -682,6 +682,23 @@ icon 资源，只显示文本和背景色。这样既保留充电提示，也避
 后续需要继续定位 large icon 在上述资源/缩放路径中的具体阻塞点，再恢复
 带图标的弹窗。
 
+### 返回表盘加载延迟
+
+默认表盘原先为 install id `7`（RunCat），但它的 app binary 不在本地 PFS
+cache 中。每次从 Launcher 返回表盘，进程管理器都会向手机发起 app fetch；
+手机端的 PutBytes 以结果 `6`（`PutBytesFailure`）失败，于是每次都重复加载：
+```text
+Launch default watchface id=7
+Launch app id=7 cache=0
+Put bytes failure
+App Fetch: prv_app_fetch_failure: 6
+```
+`watchface_get_default_install_id()` 现在优先选择本地已经 cache、可以直接
+启动的 watchface。若当前保存的默认 watchface 来自 app DB 但没有本地
+binary，则回退到已有 cache 的 watchface；只有确实没有本地候选时，才保留
+原来的手机 fetch 流程。实测板上会回退到已缓存的 Slides of Time，避免每次
+返回表盘都走手机传输。
+
 ## 当前限制与下一步
 
 当前版本已经完成最小系统启动，但仍不是可量产镜像：

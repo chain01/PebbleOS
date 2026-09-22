@@ -249,6 +249,9 @@ Still to validate after enabling the real hardware backends:
   large battery icon on this resource/scaling path stalls the launcher; the
   popup and charging state remain functional, and icon support still needs a
   follow-up fix.
+- Default watchface selection prefers a locally cached watchface. This avoids
+  repeated phone fetches when an app-db entry exists but its binary is not on
+  the watch.
 - `LOG_DOMAIN_BT_STACK` must be nonzero for HCI/NimBLE transport diagnostics to
   be emitted; otherwise transport errors are silently dropped by the logger.
 
