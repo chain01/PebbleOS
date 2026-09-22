@@ -3,6 +3,8 @@
 
 #pragma once
 
+#include <stdint.h>
+
 #include "pbl/services/imu/units.h"
 
 #define BT_VENDOR_ID   0x0EEA
@@ -16,6 +18,11 @@ extern QSPIFlash *const QSPI_FLASH;
 extern const BoardConfig BOARD_CONFIG;
 extern const BoardConfigButton BOARD_CONFIG_BUTTON;
 extern const BoardConfigPower BOARD_CONFIG_POWER;
+
+// Scratch framebuffer for the pre-compositor boot animation. The ULP kernel
+// heap does not have enough SRAM for the 200x228 splash framebuffer, so reserve
+// a region in the onboard PSRAM instead.
+uint8_t *board_get_boot_splash_framebuffer(void);
 
 static const BoardConfigAccel BOARD_CONFIG_ACCEL = {
   .default_motion_sensitivity = 55U,

@@ -252,6 +252,10 @@ static void prv_psram_pins(uint32_t pid) {
   }
 }
 
+uint8_t *board_get_boot_splash_framebuffer(void) {
+  return (uint8_t *)(QSPI1_MEM_BASE + 0x200000U);
+}
+
 bool board_psram_init(void) {
   static FLASH_HandleTypeDef psram_handle;
   const uint32_t pid = (hwp_hpsys_cfg->IDR & HPSYS_CFG_IDR_PID_Msk) >> HPSYS_CFG_IDR_PID_Pos;

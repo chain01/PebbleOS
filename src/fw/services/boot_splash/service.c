@@ -8,6 +8,9 @@
 
 #include "board/display.h"
 #include "board/splash.h"
+#if defined(CONFIG_BOARD_SF32LB52_ULP)
+extern uint8_t *board_get_boot_splash_framebuffer(void);
+#endif
 #include <pbl/drivers/display/display.h>
 #include "kernel/pbl_malloc.h"
 #include "kernel/util/sleep.h"
@@ -49,6 +52,22 @@ static struct pbl_thread *s_boot_splash_task;
 static volatile bool s_boot_splash_running;
 static uint8_t *s_boot_splash_fb;
 static RtcTicks s_boot_splash_start_ticks;
+
+static uint8_t *prv_boot_splash_fb_alloc(void) {
+#if defined(CONFIG_BOARD_SF32LB52_ULP)
+  return board_get_boot_splash_framebuffer();
+#else
+  return kernel_malloc(BOOT_SPLASH_FB_BYTES);
+#endif
+}
+
+static void prv_boot_splash_fb_free(uint8_t *fb) {
+#if !defined(CONFIG_BOARD_SF32LB52_ULP)
+  kernel_free(fb);
+#else
+  (void)fb;
+#endif
+}
 
 // Draw a filled rectangle
 static void prv_draw_filled_rect(uint8_t *fb, int16_t x0, int16_t y0, int16_t width, int16_t height,
@@ -139,7 +158,7 @@ static void prv_boot_splash_task(void *param) {
   }
 
   // Cleanup
-  kernel_free(fb);
+  prv_boot_splash_fb_free(fb);
   s_boot_splash_fb = NULL;
   s_boot_splash_task = NULL;
   pbl_thread_abort(NULL);
@@ -149,8 +168,8 @@ void boot_splash_start(void) {
   // Initialize the display
   display_init();
 
-  // Allocate framebuffer for boot splash
-  s_boot_splash_fb = kernel_malloc(BOOT_SPLASH_FB_BYTES);
+  // Allocate framebuffer for boot splash.
+  s_boot_splash_fb = prv_boot_splash_fb_alloc();
   if (!s_boot_splash_fb) {
     return;
   }
@@ -190,7 +209,7 @@ void boot_splash_stop(void) {
     }
 
     // Draw final frame with logo only (no progress bar)
-    uint8_t *fb = kernel_malloc(BOOT_SPLASH_FB_BYTES);
+    uint8_t *fb = prv_boot_splash_fb_alloc();
     if (fb) {
       memset(fb, SPLASH_COLOR_WHITE, BOOT_SPLASH_FB_BYTES);
 
@@ -213,7 +232,7 @@ void boot_splash_stop(void) {
       }
 
       display_update_boot_frame(fb);
-      kernel_free(fb);
+      prv_boot_splash_fb_free(fb);
     }
   }
 }
