@@ -647,8 +647,43 @@ I driver_accel_lsm6ds3tr_c: LSM6DS3TR-C live: x=-191 y=74 z=-962
 其中 live 日志为临时 5 Hz 验证输出；确认驱动后已移除，正式固件只在
 `accel_manager` 请求采样或启用 shake 时启动传感器。
 
-当前已验证 WHO_AM_I、单次 peek 和重复定时采样；软件 shake 阈值、轴向映射和
-抬腕行为仍需在实际佩戴姿态下继续校准。
+### 轴向与 shake 阈值校准
+
+2026-09-22 用 50 Hz 原始采样完成了六面静态姿态校准。传感器原始轴与 Pebble
+逻辑轴并不一致，当前板级映射为：
+
+```c
+.axis_map = {[AXIS_X] = 1, [AXIS_Y] = 0, [AXIS_Z] = 2},
+.axis_dir = {1, 1, 1},
+```
+
+即 `Pebble X = raw Y`、`Pebble Y = raw X`、`Pebble Z = raw Z`。屏幕朝上
+平放时原始数据接近 `(0, 0, -980 mg)`，四面翻转为 `raw X = ±970 mg`、
+`raw Y = ±1000 mg`，映射关系与姿态一致。最终抬腕和屏幕方向仍需在实际佩戴
+姿态下复核。
+
+软件 shake 检测比较相邻采样的三轴变化量
+`|dx| + |dy| + |dz|`，冷却时间为 `300 ms`。灵敏度按百分比线性反向映射，
+数值越高阈值越低、越容易触发：
+
+```c
+threshold_mg = 1800 - (1800 - 200) * sensitivity_percent / 100;
+```
+
+默认 ULP 运动灵敏度为 55%，对应 `920 mg`。实机复核时明显左右甩腕的单帧
+变化量最高约 `990 mg`，自然摆臂和轻晃大部分低于 `500 mg`，因此该阈值能稳定
+捕获连续甩腕而不把普通摆臂当成 shake。触发使用独立的“上次 shake 事件”
+时间戳进行 `300 ms` 冷却，不能使用相邻采样时间，否则约 `19 ms` 的采样间隔
+会让事件被永久抑制。
+
+`CONFIG_ACCEL_SENSITIVITY=y` 已启用，可在 `Settings > System > Debugging >
+Motion Sensitivity` 中选择 Very Low 到 Very High。注意 shake 软件检测只在
+`Settings > Display > Backlight > Wake on motion` 为 `On`，或应用主动订阅
+shake 事件时运行。
+
+实机日志确认 `SHAKE TEST enabled=1`，连续三次明显甩腕产生四个超过阈值的
+峰值，逻辑轴均为 `AXIS_Y`，方向随甩动反向变化。正常佩戴下的长期误触发率
+仍可作为后续调参依据。
 
 震动马达未接入，也不会在 ULP 配置中调用震动回调；通知振动体验不纳入本次
 加速度适配。
