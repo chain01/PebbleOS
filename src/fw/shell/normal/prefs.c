@@ -17,6 +17,7 @@
 #include "pbl/kernel/mutex.h"
 #include "popups/timeline/peek.h"
 #include "process_management/app_install_manager.h"
+#include "pbl/services/app_cache.h"
 #include "pbl/services/accel_manager.h"
 #include "pbl/services/touch/touch.h"
 #include "pbl/services/touch/touch_nav_service.h"
@@ -1843,9 +1844,18 @@ uint8_t welcome_get_welcome_version(void) {
   return s_welcome_version;
 }
 
-static bool prv_set_default_any_watchface_enumerate_callback(AppInstallEntry *entry, void *data) {
+static bool prv_watchface_is_locally_available(AppInstallId app_id) {
+  return !app_install_id_from_app_db(app_id) || app_cache_entry_exists(app_id);
+}
+
+static bool prv_set_default_watchface_enumerate_callback(AppInstallEntry *entry, void *data) {
   if (!app_install_entry_is_watchface(entry) || app_install_entry_is_hidden(entry)) {
     return true; // continue search
+  }
+
+  const bool cached_only = (bool)(uintptr_t)data;
+  if (cached_only && !prv_watchface_is_locally_available(entry->install_id)) {
+    return true; // continue searching for a launchable watchface
   }
 
   watchface_set_default_install_id(entry->install_id);
@@ -1855,10 +1865,21 @@ static bool prv_set_default_any_watchface_enumerate_callback(AppInstallEntry *en
 AppInstallId watchface_get_default_install_id(void) {
   AppInstallId app_id = app_install_get_id_for_uuid(&s_default_watchface);
   AppInstallEntry entry;
-  if (app_id == INSTALL_ID_INVALID || !app_install_get_entry_for_install_id(app_id, &entry) ||
-      !app_install_entry_is_watchface(&entry)) {
-    app_install_enumerate_entries(prv_set_default_any_watchface_enumerate_callback, NULL);
+  const bool stored_default_valid =
+      app_id != INSTALL_ID_INVALID && app_install_get_entry_for_install_id(app_id, &entry) &&
+      app_install_entry_is_watchface(&entry) && prv_watchface_is_locally_available(app_id);
+
+  if (!stored_default_valid) {
+    app_install_enumerate_entries(prv_set_default_watchface_enumerate_callback,
+                                  (void *)(uintptr_t)true);
     app_id = app_install_get_id_for_uuid(&s_default_watchface);
+
+    // If no local watchface exists, retain the old behavior and allow a fetch
+    // attempt for the first installed watchface.
+    if (app_id == INSTALL_ID_INVALID) {
+      app_install_enumerate_entries(prv_set_default_watchface_enumerate_callback, NULL);
+      app_id = app_install_get_id_for_uuid(&s_default_watchface);
+    }
   }
   return app_id;
 }
