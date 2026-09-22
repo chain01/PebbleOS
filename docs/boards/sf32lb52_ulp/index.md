@@ -204,6 +204,8 @@ Validated on 2026-09-21 with the ULP board connected as `COM16`:
     measured a plausible battery voltage.
 11. CO5300 `WRDISBV` brightness control is active; light-service OFF uses a
     6% AMOLED floor instead of full display off.
+12. A watchface App Fetch completed through `App fetch cleanup with result 0`
+    without the app-cache reentrancy assertion or a follow-up reset.
 
 Still to validate after enabling the real hardware backends:
 

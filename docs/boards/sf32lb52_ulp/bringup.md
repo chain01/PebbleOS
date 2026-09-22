@@ -709,6 +709,27 @@ binary，则回退到已有 cache 的 watchface；只有确实没有本地候选
 原来的手机 fetch 流程。实测板上会回退到已缓存的 Slides of Time，避免每次
 返回表盘都走手机传输。
 
+### 表盘传输完成后重启
+
+表盘 App Fetch 成功、`App fetch cleanup with result 0` 后，设备会触发以下
+断言并复位：
+
+```text
+<err> service_settings: Could not open settings file 'appcache', -11
+service_settings: *** CROAK: Settings file is already open!
+```
+
+根因是 `app_cache_free_up_space()` 先打开了 `appcache`，随后才构造
+“禁止淘汰”列表。该列表调用 `watchface_get_default_install_id()`；为了确认
+本地表盘可用，它又通过 `app_cache_entry_exists()` 打开同一个 `appcache`。
+PFS 对同一文件的第二次打开返回 `E_BUSY`，settings 层将其视为编程错误并
+触发断言。
+
+修复方式是在打开 `appcache` 之前先完成“禁止淘汰”列表的快照。实机重新传输
+表盘后，日志显示 `App fetch cleanup with result 0`，随后持续运行超过
+80 秒，仅保留上电时的一次 `SFBL`，没有 `CROAK`、没有 firmware failure
+复位，也没有重复重连。
+
 ## 当前限制与下一步
 
 当前版本已经完成最小系统启动，但仍不是可量产镜像：
