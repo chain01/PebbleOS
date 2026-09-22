@@ -119,7 +119,7 @@ productization tasks.
 ### P4: watch peripherals
 
 - LSM6DS3TR-C accelerometer
-  (I2C3/PA40/PA39, INT1/PA31, address `0x6A`; sampling and software shake validated)
+  (I2C3/PA40/PA39, INT1/PA31, address `0x6A`; sampling validated, software shake pending motion test)
 - LTR-303ALS ambient light sensor
 - MMC5603NJ magnetometer
 - Analog microphone and speaker path

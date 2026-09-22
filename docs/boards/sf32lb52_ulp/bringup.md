@@ -647,6 +647,9 @@ I driver_accel_lsm6ds3tr_c: LSM6DS3TR-C live: x=-191 y=74 z=-962
 其中 live 日志为临时 5 Hz 验证输出；确认驱动后已移除，正式固件只在
 `accel_manager` 请求采样或启用 shake 时启动传感器。
 
+当前已验证 WHO_AM_I、单次 peek 和重复定时采样；软件 shake 阈值、轴向映射和
+抬腕行为仍需在实际佩戴姿态下继续校准。
+
 震动马达未接入，也不会在 ULP 配置中调用震动回调；通知振动体验不纳入本次
 加速度适配。
 
