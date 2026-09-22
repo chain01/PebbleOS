@@ -598,6 +598,30 @@ bootloader/PBLBOOT 选择并启动该 recovery 镜像，以及与其配套的 OT
 slot 切换和回滚流程；这些完成前，PRF 只能算“已安装并可被系统识别”，
 还不能算“可自动恢复启动”。
 
+### PRF 恢复模式下的配对输入
+
+执行 factory reset 时，normal 固件会按设计清除两个 firmware slot 的有效
+标记并强制启动 PRF，等待手机重新安装普通固件。本次实机确认设备确实进入
+`First Use / Recovery`，但 Bluetooth SSP 窗口只监听 `Up/Down`：
+
+```text
+Modal Stack:
+  window <Bluetooth SSP>
+```
+
+ULP 硬件只有 `Back/Select`，没有 `Up/Down`，因此 Select 和触摸中间区域
+无法确认配对，表现为触摸和按键都“没有反应”。
+
+现在配对确认同时支持：
+
+- `Up` 或 `Select`：确认
+- `Down` 或 `Back`：取消
+- ULP 的 ActionBar 确认图标显示在 Select 位置
+
+因此 factory reset 后的正确流程是：进入 PRF、用 Select 确认配对、等待手机
+重新安装 normal 固件。实机已重新写入并验证 slot0/slot1 恢复正常启动；
+PRF 中的 FT6146、CO5300 和按键服务也都能正常初始化。
+
 ## P1 电源、USB 检测与 CO5300 待机亮度
 
 2026-09-22 在一台全新区块上完成全量分区恢复和 P1 电源链路验证。

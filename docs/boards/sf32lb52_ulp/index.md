@@ -208,6 +208,8 @@ Validated on 2026-09-21 with the ULP board connected as `COM16`:
     without the app-cache reentrancy assertion or a follow-up reset.
 13. Fetched watchface `app`/`res` files and the `appcache` entry remain in PFS
     after installation; ULP reserves a 300 KiB cache headroom instead of 4 MiB.
+14. PRF pairing confirmation accepts `Select` as confirm and `Back` as cancel on
+    the two-button ULP hardware, so factory-reset recovery can be re-paired.
 
 Still to validate after enabling the real hardware backends:
 
